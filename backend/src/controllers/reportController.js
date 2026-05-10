@@ -1,0 +1,122 @@
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ok } from "../utils/response.js";
+import {
+  getOverview,
+  getReportByRange,
+  getDailyStats,
+  getMonthlyComparison,
+  getForecast,
+} from "../services/reportService.js";
+import {
+  exportTransactionsToExcel,
+  exportReportToPDF,
+} from "../services/exportService.js";
+import {
+  formatDate,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  startOfYear,
+  addDays,
+  today,
+} from "../utils/date.js";
+
+// helper: lay range tu query, mac dinh la thang nay
+const resolveRange = (req) => {
+  let from = req.query.fromDate;
+  let to = req.query.toDate;
+  if (!from || !to) {
+    from = formatDate(startOfMonth());
+    to = formatDate(endOfMonth());
+  }
+  return { from, to };
+};
+
+export const overview = asyncHandler(async (req, res) => {
+  const data = await getOverview(req.user.id);
+  return ok(res, data);
+});
+
+export const rangeReport = asyncHandler(async (req, res) => {
+  const { from, to } = resolveRange(req);
+  const data = await getReportByRange(req.user.id, from, to, req.query);
+  return ok(res, data);
+});
+
+export const dailyStats = asyncHandler(async (req, res) => {
+  const { from, to } = resolveRange(req);
+  const items = await getDailyStats(req.user.id, from, to);
+  return ok(res, { items, range: { from, to } });
+});
+
+export const compareMonths = asyncHandler(async (req, res) => {
+  const data = await getMonthlyComparison(req.user.id);
+  return ok(res, data);
+});
+
+export const forecast = asyncHandler(async (req, res) => {
+  const data = await getForecast(req.user.id);
+  return ok(res, data);
+});
+
+// === Export Excel ===
+export const exportExcel = asyncHandler(async (req, res) => {
+  const { from, to } = resolveRange(req);
+  const buffer = await exportTransactionsToExcel(req.user.id, from, to);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="bao-cao-${from}_${to}.xlsx"`
+  );
+  res.send(Buffer.from(buffer));
+});
+
+// === Export PDF ===
+export const exportPdf = asyncHandler(async (req, res) => {
+  const { from, to } = resolveRange(req);
+  const buffer = await exportReportToPDF(req.user.id, from, to);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="bao-cao-${from}_${to}.pdf"`
+  );
+  res.send(buffer);
+});
+
+// === Helper preset ranges (cho quick filter) ===
+export const presetRanges = asyncHandler(async (req, res) => {
+  const t = today();
+  return ok(res, {
+    today: { from: formatDate(t), to: formatDate(t) },
+    yesterday: {
+      from: formatDate(addDays(t, -1)),
+      to: formatDate(addDays(t, -1)),
+    },
+    thisWeek: {
+      from: formatDate(startOfWeek()),
+      to: formatDate(addDays(startOfWeek(), 6)),
+    },
+    thisMonth: {
+      from: formatDate(startOfMonth()),
+      to: formatDate(endOfMonth()),
+    },
+    lastMonth: (() => {
+      const lm = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+      return {
+        from: formatDate(startOfMonth(lm)),
+        to: formatDate(endOfMonth(lm)),
+      };
+    })(),
+    thisYear: {
+      from: formatDate(startOfYear()),
+      to: `${t.getFullYear()}-12-31`,
+    },
+    last30Days: {
+      from: formatDate(addDays(t, -29)),
+      to: formatDate(t),
+    },
+  });
+});

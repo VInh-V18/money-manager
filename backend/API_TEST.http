@@ -1,0 +1,275 @@
+### ============================================================
+### Money Manager - API Test File (GĐ 1+2+3)
+### Cài extension "REST Client" (humao.rest-client) trong VSCode
+### Bấm "Send Request" trên từng dòng @
+### ============================================================
+
+@host = http://localhost:5001
+@accessToken = 
+
+### ===== HEALTH =====
+GET {{host}}/api/health
+
+### Xem danh sách tất cả endpoint
+GET {{host}}/api
+
+
+### ===== AUTH =====
+
+### Đăng nhập với tài khoản demo (đã seed sẵn)
+POST {{host}}/api/auth/signin
+Content-Type: application/json
+
+{
+  "identifier": "demo@money.local",
+  "password": "Demo@1234"
+}
+### -> COPY accessToken từ response, dán vào @accessToken ở đầu file ###
+
+### Lấy thông tin user hiện tại
+GET {{host}}/api/auth/me
+Authorization: Bearer {{accessToken}}
+
+
+### ===== WALLETS =====
+
+GET {{host}}/api/wallets
+Authorization: Bearer {{accessToken}}
+
+### Chuyển tiền giữa 2 ví
+POST {{host}}/api/wallets/transfer
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "fromWalletId": 2,
+  "toWalletId": 1,
+  "amount": 500000,
+  "transferDate": "2026-05-10",
+  "note": "Rút tiền"
+}
+
+
+### ===== TRANSACTIONS =====
+
+### Tạo chi tiêu
+POST {{host}}/api/transactions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "walletId": 1,
+  "categoryId": 11,
+  "type": "expense",
+  "amount": 50000,
+  "description": "An sang pho",
+  "transactionDate": "2026-05-10"
+}
+
+### Liệt kê + filter
+GET {{host}}/api/transactions?type=expense&fromDate=2026-04-01&toDate=2026-05-31&page=1&limit=20
+Authorization: Bearer {{accessToken}}
+
+### Thu nhập theo giờ
+POST {{host}}/api/transactions/hourly-wage
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "walletId": 1,
+  "hourlyRate": 50000,
+  "numberOfHours": 4,
+  "workDate": "2026-05-10",
+  "shift": "Sáng"
+}
+
+
+### ===== BUDGETS =====
+
+### Liệt kê + tự tính spent/remaining
+GET {{host}}/api/budgets
+Authorization: Bearer {{accessToken}}
+
+### Tổng quan
+GET {{host}}/api/budgets/summary
+Authorization: Bearer {{accessToken}}
+
+### Tạo ngân sách mới
+POST {{host}}/api/budgets
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Đi lại tháng 5",
+  "categoryId": 12,
+  "amount": 500000,
+  "period": "monthly",
+  "startDate": "2026-05-01",
+  "warnThreshold": 80
+}
+
+
+### ===== FIXED EXPENSES =====
+
+GET {{host}}/api/fixed-expenses
+Authorization: Bearer {{accessToken}}
+
+### Tạo khoản chi cố định mới
+POST {{host}}/api/fixed-expenses
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "walletId": 2,
+  "categoryId": 13,
+  "name": "Internet wifi",
+  "amount": 200000,
+  "frequency": "monthly",
+  "dayOfMonth": 10,
+  "startDate": "2026-05-01",
+  "autoDeduct": true,
+  "remindDaysBefore": 2
+}
+
+### Test chạy cron tay - sinh giao dịch cho FE đến hạn
+POST {{host}}/api/fixed-expenses/generate-due
+Authorization: Bearer {{accessToken}}
+
+
+### ===== GOALS =====
+
+GET {{host}}/api/goals
+Authorization: Bearer {{accessToken}}
+
+### Tạo mục tiêu
+POST {{host}}/api/goals
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Đi du lịch Đà Nẵng",
+  "targetAmount": 5000000,
+  "currentAmount": 0,
+  "targetDate": "2026-08-01",
+  "startDate": "2026-05-10",
+  "icon": "plane"
+}
+
+### Bỏ thêm 500k vào mục tiêu
+POST {{host}}/api/goals/1/add
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "amount": 500000 }
+
+
+### ===== DEBTS =====
+
+GET {{host}}/api/debts
+Authorization: Bearer {{accessToken}}
+
+### Tạo khoản nợ
+POST {{host}}/api/debts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "owed_by_me",
+  "personName": "Anh Phong",
+  "amount": 1000000,
+  "borrowedDate": "2026-05-05",
+  "dueDate": "2026-06-05",
+  "note": "Mượn mua xe đạp"
+}
+
+### Trả nợ một phần (kèm tạo giao dịch ở ví)
+POST {{host}}/api/debts/1/pay
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "amount": 200000,
+  "walletId": 1,
+  "payDate": "2026-05-10",
+  "note": "Trả lần 1"
+}
+
+
+### ===== TEMPLATES =====
+
+GET {{host}}/api/templates
+Authorization: Bearer {{accessToken}}
+
+### Tạo mẫu chi nhanh
+POST {{host}}/api/templates
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "walletId": 1,
+  "categoryId": 11,
+  "name": "Trà sữa Phúc Long",
+  "defaultAmount": 55000,
+  "type": "expense",
+  "icon": "cup-soda",
+  "isPinned": true
+}
+
+### Dùng mẫu để tạo giao dịch nhanh (1 click)
+POST {{host}}/api/templates/1/use
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{}
+
+
+### ===== NOTIFICATIONS =====
+
+GET {{host}}/api/notifications
+Authorization: Bearer {{accessToken}}
+
+GET {{host}}/api/notifications/unread-count
+Authorization: Bearer {{accessToken}}
+
+### Đánh dấu tất cả đã đọc
+PUT {{host}}/api/notifications/mark-all-read
+Authorization: Bearer {{accessToken}}
+
+
+### ===== REPORTS =====
+
+### Tổng quan dashboard
+GET {{host}}/api/reports/overview
+Authorization: Bearer {{accessToken}}
+
+### Báo cáo theo khoảng (mặc định tháng này)
+GET {{host}}/api/reports/range
+Authorization: Bearer {{accessToken}}
+
+### Báo cáo tùy chỉnh khoảng
+GET {{host}}/api/reports/range?fromDate=2026-04-01&toDate=2026-05-31
+Authorization: Bearer {{accessToken}}
+
+### Thống kê theo ngày (cho biểu đồ line/bar)
+GET {{host}}/api/reports/daily-stats?fromDate=2026-04-25&toDate=2026-05-10
+Authorization: Bearer {{accessToken}}
+
+### So sánh tháng này vs tháng trước
+GET {{host}}/api/reports/compare-months
+Authorization: Bearer {{accessToken}}
+
+### Dự báo cuối tháng
+GET {{host}}/api/reports/forecast
+Authorization: Bearer {{accessToken}}
+
+### Preset ranges (today/this week/this month/...)
+GET {{host}}/api/reports/preset-ranges
+Authorization: Bearer {{accessToken}}
+
+### Export Excel (sẽ tự download file)
+GET {{host}}/api/reports/export/excel?fromDate=2026-04-01&toDate=2026-05-31
+Authorization: Bearer {{accessToken}}
+
+### Export PDF
+GET {{host}}/api/reports/export/pdf?fromDate=2026-04-01&toDate=2026-05-31
+Authorization: Bearer {{accessToken}}

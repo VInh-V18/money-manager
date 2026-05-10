@@ -1,0 +1,24 @@
+import nodemailer from "nodemailer";
+import env from "./env.js";
+
+let transporter = null;
+
+export const getTransporter = () => {
+  if (transporter) return transporter;
+
+  if (!env.MAIL_USER || !env.MAIL_PASS) {
+    console.warn("⚠ Chua cau hinh MAIL_USER/MAIL_PASS, OTP se chi log ra console");
+    return null;
+  }
+
+  transporter = nodemailer.createTransport({
+    host: env.MAIL_HOST,
+    port: env.MAIL_PORT,
+    secure: env.MAIL_PORT === 465,
+    auth: { user: env.MAIL_USER, pass: env.MAIL_PASS },
+  });
+
+  return transporter;
+};
+
+export const mailFrom = `"${env.MAIL_FROM_NAME}" <${env.MAIL_USER || "noreply@money.local"}>`;

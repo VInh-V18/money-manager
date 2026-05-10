@@ -1,0 +1,48 @@
+import api from "@/lib/axios";
+import type { OverviewData, RangeReport, DailyStat } from "@/types";
+
+export const reportService = {
+  overview: () =>
+    api.get("/reports/overview").then((r) => r.data.data as OverviewData),
+
+  range: (fromDate?: string, toDate?: string) =>
+    api
+      .get("/reports/range", { params: { fromDate, toDate } })
+      .then((r) => r.data.data as RangeReport),
+
+  dailyStats: (fromDate: string, toDate: string) =>
+    api
+      .get("/reports/daily-stats", { params: { fromDate, toDate } })
+      .then((r) => r.data.data as { items: DailyStat[]; range: { from: string; to: string } }),
+
+  compareMonths: () =>
+    api.get("/reports/compare-months").then((r) => r.data.data),
+
+  forecast: () => api.get("/reports/forecast").then((r) => r.data.data),
+
+  presetRanges: () => api.get("/reports/preset-ranges").then((r) => r.data.data),
+
+  exportExcel: (fromDate?: string, toDate?: string) =>
+    api.get("/reports/export/excel", {
+      params: { fromDate, toDate },
+      responseType: "blob",
+    }),
+
+  exportPdf: (fromDate?: string, toDate?: string) =>
+    api.get("/reports/export/pdf", {
+      params: { fromDate, toDate },
+      responseType: "blob",
+    }),
+};
+
+/** Helper download blob xuống file */
+export const downloadBlob = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
