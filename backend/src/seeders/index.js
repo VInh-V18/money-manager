@@ -54,7 +54,7 @@ async function run() {
   console.log("→ Bat dau seed...");
 
   // dong bo bang truoc
-  await sequelize.sync({ alter: true });
+  await sequelize.sync();
 
   // 1. tao user demo
   const [user, createdUser] = await User.findOrCreate({
