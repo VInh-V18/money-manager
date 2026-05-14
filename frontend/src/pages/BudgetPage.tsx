@@ -31,6 +31,11 @@ const schema = z.object({
   strictMode: z.boolean(),
 });
 type FormData = z.infer<typeof schema>;
+type BudgetListResponse = {
+  items?: Budget[];
+  budgets?: Budget[];
+  data?: Budget[];
+};
 
 const PERIOD_LABELS: Record<BudgetPeriod, string> = {
   daily: "Hàng ngày",
@@ -71,14 +76,15 @@ export default function BudgetPage() {
       budgetService.summary(),
     ]);
 
-    if (Array.isArray(data)) {
+    const budgetData = data as Budget[] | BudgetListResponse;
+    if (Array.isArray(budgetData)) {
       setItems(data);
-    } else if (Array.isArray((data as any)?.items)) {
-      setItems((data as any).items);
-    } else if (Array.isArray((data as any)?.budgets)) {
-      setItems((data as any).budgets);
-    } else if (Array.isArray((data as any)?.data)) {
-      setItems((data as any).data);
+    } else if (Array.isArray(budgetData.items)) {
+      setItems(budgetData.items);
+    } else if (Array.isArray(budgetData.budgets)) {
+      setItems(budgetData.budgets);
+    } else if (Array.isArray(budgetData.data)) {
+      setItems(budgetData.data);
     } else {
       setItems([]);
     }

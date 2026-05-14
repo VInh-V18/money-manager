@@ -29,7 +29,10 @@ export default (sequelize) => {
       tableName: "expense_templates",
       timestamps: true,
       paranoid: true,
-      indexes: [{ fields: ["userId"] }],
+      indexes: [
+        { fields: ["userId"] },
+        { fields: ["userId", "isPinned", "usageCount", "sortOrder"] },
+      ],
     }
   );
 

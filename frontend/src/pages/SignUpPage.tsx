@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuthStore } from "@/stores/useAuthStore";
 
 const schema = z.object({
-  username: z.string().min(3, "Tối thiểu 3 ký tự").regex(/^[a-zA-Z0-9_]+$/, "Chỉ chữ, số, gạch dưới"),
+  username: z.string().min(3, "Tối thiểu 3 ký tự").regex(/^[a-zA-Z0-9_]+$/, "Chỉ gồm chữ, số, gạch dưới"),
   email: z.string().email("Email không hợp lệ"),
   displayName: z.string().min(1, "Vui lòng nhập họ tên"),
   password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự"),
@@ -21,13 +21,13 @@ export default function SignUpPage() {
   const signUp = useAuthStore((s) => s.signUp);
   const loading = useAuthStore((s) => s.loading);
 
-  const { register, handleSubmit, formState: { errors }, getValues } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
   const onSubmit = async (data: FormData) => {
     const ok = await signUp(data);
-    if (ok) navigate(`/verify-email?email=${encodeURIComponent(getValues("email"))}`);
+    if (ok) navigate("/signin");
   };
 
   return (
@@ -62,7 +62,7 @@ export default function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
-              <Input id="password" type="password" {...register("password")} placeholder="••••••••" />
+              <Input id="password" type="password" {...register("password")} placeholder="********" />
               {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
             </div>
 

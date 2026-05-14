@@ -50,6 +50,11 @@ export default (sequelize) => {
       indexes: [
         { fields: ["userId"] },
         { fields: ["userId", "transactionDate"] },
+        { fields: ["userId", "transactionDate", "createdAt"] },
+        { fields: ["userId", "type", "transactionDate"] },
+        { fields: ["userId", "walletId", "transactionDate"] },
+        { fields: ["userId", "categoryId", "transactionDate"] },
+        { fields: ["userId", "amount"] },
         { fields: ["walletId"] },
         { fields: ["categoryId"] },
         { fields: ["type"] },

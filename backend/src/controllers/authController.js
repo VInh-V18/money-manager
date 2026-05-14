@@ -3,6 +3,8 @@ import { ok, created } from "../utils/response.js";
 import {
   signUpService,
   signInService,
+  getOAuthStartUrl,
+  signInWithOAuthService,
   signOutService,
   refreshTokenService,
   verifyOtpService,
@@ -11,8 +13,7 @@ import {
   resetPasswordService,
   changePasswordService,
 } from "../services/authService.js";
-import { User } from "../models/index.js";
-import { hashPassword } from "../utils/bcrypt.js";
+import env from "../config/env.js";
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -27,7 +28,7 @@ export const signUp = asyncHandler(async (req, res) => {
   return created(
     res,
     { email: req.body.email },
-    "Dang ky thanh cong. Vui long kiem tra email de nhap OTP xac thuc."
+    "Dang ky thanh cong. Ban co the dang nhap ngay."
   );
 });
 
@@ -41,6 +42,63 @@ export const signIn = asyncHandler(async (req, res) => {
 
   res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
   return ok(res, { user, accessToken }, "Dang nhap thanh cong");
+});
+
+const getOAuthRedirectUri = (req, provider) =>
+  `${env.API_PUBLIC_URL || `${req.protocol}://${req.get("host")}`}/api/auth/oauth/${provider}/callback`;
+
+const redirectOAuthError = (res, message) => {
+  const params = new URLSearchParams({ error: message });
+  return res.redirect(`${env.CLIENT_URL}/oauth/callback?${params.toString()}`);
+};
+
+export const oauthStart = asyncHandler(async (req, res) => {
+  const provider = req.params.provider;
+  const state = Buffer.from(
+    JSON.stringify({ provider, ts: Date.now() })
+  ).toString("base64url");
+
+  const url = getOAuthStartUrl({
+    provider,
+    redirectUri: getOAuthRedirectUri(req, provider),
+    state,
+  });
+
+  return res.redirect(url);
+});
+
+export const oauthCallback = asyncHandler(async (req, res) => {
+  const provider = req.params.provider;
+
+  if (req.query.error) {
+    return redirectOAuthError(
+      res,
+      String(req.query.error_description || req.query.error)
+    );
+  }
+
+  if (!req.query.code) {
+    return redirectOAuthError(res, "Khong nhan duoc ma xac thuc OAuth");
+  }
+
+  try {
+    const { accessToken, refreshToken } = await signInWithOAuthService({
+      provider,
+      code: String(req.query.code),
+      redirectUri: getOAuthRedirectUri(req, provider),
+      userAgent: req.headers["user-agent"],
+      ipAddress: req.ip,
+    });
+
+    res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
+    const params = new URLSearchParams({ accessToken });
+    return res.redirect(`${env.CLIENT_URL}/oauth/callback?${params.toString()}`);
+  } catch (error) {
+    return redirectOAuthError(
+      res,
+      error?.message || "Dang nhap bang OAuth khong thanh cong"
+    );
+  }
 });
 
 export const signOut = asyncHandler(async (req, res) => {
@@ -72,10 +130,10 @@ export const resendVerifyOtp = asyncHandler(async (req, res) => {
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {
-  await forgotPasswordService(req.body);
+  const data = await forgotPasswordService(req.body);
   return ok(
     res,
-    null,
+    data,
     "Neu email ton tai, OTP da duoc gui. Vui long kiem tra hop thu."
   );
 });

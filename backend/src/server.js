@@ -15,6 +15,7 @@ import walletRoute from "./routes/walletRoute.js";
 import categoryRoute from "./routes/categoryRoute.js";
 import transactionRoute from "./routes/transactionRoute.js";
 import reportRoute from "./routes/reportRoute.js";
+import aiRoute from "./routes/aiRoute.js";
 import {
   budgetRouter,
   fixedRouter,
@@ -28,12 +29,24 @@ import {
 import { initCronJobs } from "./jobs/cronJobs.js";
 
 const app = express();
+app.set("trust proxy", 1);
+
+const allowedOrigins = new Set([
+  ...env.CLIENT_URLS,
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
 
 // ===== Bao mat & middleware co ban =====
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked origin: ${origin}`));
+    },
     credentials: true,
   })
 );
@@ -63,6 +76,7 @@ app.use("/api/debts", debtRouter);
 app.use("/api/templates", templateRouter);
 app.use("/api/notifications", notifRouter);
 app.use("/api/reports", reportRoute);
+app.use("/api/ai", aiRoute);
 
 app.get("/api", (req, res) => {
   res.json({
@@ -80,6 +94,7 @@ app.get("/api", (req, res) => {
       templates: "/api/templates/*",
       notifications: "/api/notifications/*",
       reports: "/api/reports/*",
+      ai: "/api/ai/*",
     },
   });
 });
@@ -89,7 +104,10 @@ app.use(errorHandler);
 
 const start = async () => {
   await connectDB();
-  await syncModels({ alter: true });
+  await syncModels({
+    alter: env.NODE_ENV === "development" && env.DB_SYNC_ALTER !== "false",
+    force: env.DB_SYNC_FORCE === "true",
+  });
   initCronJobs();
   app.listen(env.PORT, () => {
     console.log(`\n✓ Server chay tai http://localhost:${env.PORT}`);

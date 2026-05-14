@@ -198,6 +198,34 @@ export const deleteTransaction = asyncHandler(async (req, res) => {
   return ok(res, null, "Da xoa giao dich va hoan tac so du");
 });
 
+// ===== Xoa nhieu giao dich =====
+export const deleteTransactionsBulk = asyncHandler(async (req, res) => {
+  const ids = [...new Set(req.body.ids.map(Number))];
+  const transactions = await Transaction.findAll({
+    where: {
+      id: { [Op.in]: ids },
+      userId: req.user.id,
+    },
+    order: [["id", "ASC"]],
+  });
+
+  if (transactions.length !== ids.length) {
+    throw badRequest("Mot so giao dich khong ton tai hoac khong thuoc ve ban");
+  }
+
+  await sequelize.transaction(async (dbTx) => {
+    for (const tx of transactions) {
+      await deleteTransactionWithBalance(tx, dbTx);
+    }
+  });
+
+  return ok(
+    res,
+    { deletedCount: transactions.length },
+    `Da xoa ${transactions.length} giao dich va hoan tac so du`
+  );
+});
+
 // ===== Helper: thu nhap theo ngay =====
 export const createDailyWage = asyncHandler(async (req, res) => {
   const { walletId, categoryId, dailyRate, numberOfDays, startDate, description } = req.body;

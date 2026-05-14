@@ -1,13 +1,13 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { API_BASE_URL } from "@/lib/env";
 
 const api = axios.create({
-  baseURL:
-    import.meta.env.MODE === "development" ? "http://localhost:5001/api" : "/api",
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
-// Gắn access token vào header
+// Gắn access token vào header.
 api.interceptors.request.use((config) => {
   const { accessToken } = useAuthStore.getState();
   if (accessToken && config.headers) {
@@ -16,7 +16,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Tự động refresh khi access token hết hạn
 type RetryConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
 api.interceptors.response.use(
@@ -25,7 +24,6 @@ api.interceptors.response.use(
     const originalRequest = error.config as RetryConfig | undefined;
     if (!originalRequest) return Promise.reject(error);
 
-    // Bypass cho route auth công khai
     const url = originalRequest.url || "";
     if (
       url.includes("/auth/signin") ||
@@ -38,7 +36,6 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Backend mới trả 401 (chứ không phải 403 như Moji)
     if (error.response?.status === 401 && !originalRequest._retried) {
       originalRequest._retried = true;
       try {
@@ -53,7 +50,6 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         useAuthStore.getState().clearState();
-        // chuyển về trang sign in
         if (window.location.pathname !== "/signin") {
           window.location.href = "/signin";
         }
@@ -65,7 +61,6 @@ api.interceptors.response.use(
   }
 );
 
-/** Helper extract message lỗi từ response */
 export const getErrorMessage = (err: unknown, fallback = "Có lỗi xảy ra"): string => {
   if (err instanceof AxiosError) {
     const data = err.response?.data as { message?: string; errors?: unknown };

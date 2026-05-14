@@ -3,11 +3,12 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { TrendingUp, Eye, EyeOff } from "lucide-react";
+import { TrendingUp, Eye, EyeOff, Chrome, Github, Globe2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { authService, type OAuthProvider } from "@/services/authService";
 
 const schema = z.object({
   identifier: z.string().min(1, "Vui lòng nhập email hoặc username"),
@@ -32,6 +33,10 @@ export default function SignInPage() {
   const onSubmit = async (data: FormData) => {
     const ok = await signIn(data.identifier, data.password);
     if (ok) navigate("/");
+  };
+
+  const handleOAuthLogin = (provider: OAuthProvider) => {
+    window.location.href = authService.oauthUrl(provider);
   };
 
   return (
@@ -64,7 +69,7 @@ export default function SignInPage() {
                   id="password"
                   type={showPwd ? "text" : "password"}
                   {...register("password")}
-                  placeholder="••••••••"
+                  placeholder="********"
                 />
                 <Button
                   type="button"
@@ -83,6 +88,42 @@ export default function SignInPage() {
               Đăng nhập
             </Button>
           </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">Hoặc đăng nhập bằng</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleOAuthLogin("google")}
+            >
+              <Chrome className="mr-2 size-4" />
+              Google
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleOAuthLogin("facebook")}
+            >
+              <Globe2 className="mr-2 size-4" />
+              Facebook
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleOAuthLogin("github")}
+            >
+              <Github className="mr-2 size-4" />
+              GitHub
+            </Button>
+          </div>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Chưa có tài khoản?{" "}

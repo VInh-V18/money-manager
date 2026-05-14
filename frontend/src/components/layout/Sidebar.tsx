@@ -38,7 +38,6 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
-      {/* mobile overlay */}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/50 lg:hidden"
@@ -52,7 +51,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-md">
             <TrendingUp className="size-5" />
@@ -62,7 +60,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="overflow-y-auto custom-scroll p-3 h-[calc(100vh-4rem)]">
           <ul className="space-y-1">
             {NAV_ITEMS.map((item) => {

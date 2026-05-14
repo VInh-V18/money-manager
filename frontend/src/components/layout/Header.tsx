@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getBackendAssetUrl } from "@/lib/env";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useThemeStore } from "@/stores/useThemeStore";
 
@@ -73,14 +74,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           <Button variant="ghost" className="relative h-9 px-2 gap-2">
             <Avatar className="size-7">
               {user?.avatarUrl && (
-                <AvatarImage
-                  src={
-                    user.avatarUrl.startsWith("http")
-                      ? user.avatarUrl
-                      : `${import.meta.env.MODE === "development" ? "http://localhost:5001" : ""}${user.avatarUrl}`
-                  }
-                  alt={user.displayName}
-                />
+                <AvatarImage src={getBackendAssetUrl(user.avatarUrl)} alt={user.displayName} />
               )}
               <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
             </Avatar>

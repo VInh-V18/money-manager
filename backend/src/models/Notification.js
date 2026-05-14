@@ -40,6 +40,8 @@ export default (sequelize) => {
       indexes: [
         { fields: ["userId"] },
         { fields: ["userId", "isRead"] },
+        { fields: ["userId", "isRead", "createdAt"] },
+        { fields: ["userId", "createdAt"] },
         { fields: ["createdAt"] },
       ],
     }

@@ -33,6 +33,7 @@ export default (sequelize) => {
       indexes: [
         { fields: ["userId"] },
         { fields: ["userId", "isActive"] },
+        { fields: ["userId", "isActive", "categoryId"] },
         { fields: ["categoryId"] },
       ],
     }

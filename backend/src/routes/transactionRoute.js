@@ -4,6 +4,7 @@ import { protectedRoute } from "../middlewares/authMiddleware.js";
 import { validate } from "../middlewares/validateMiddleware.js";
 import {
   createTransactionSchema,
+  deleteTransactionsBulkSchema,
   updateTransactionSchema,
   listTransactionQuerySchema,
   createDailyWageSchema,
@@ -19,6 +20,7 @@ router.get("/search", ctrl.searchTransactions);
 
 router.get("/", validate(listTransactionQuerySchema, "query"), ctrl.listTransactions);
 router.post("/", validate(createTransactionSchema), ctrl.createTransaction);
+router.delete("/bulk", validate(deleteTransactionsBulkSchema), ctrl.deleteTransactionsBulk);
 
 // helper api thu nhap theo ngay/gio
 router.post(

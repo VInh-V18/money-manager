@@ -49,6 +49,13 @@ export const updateTransactionSchema = z.object({
   allowNegative: z.coerce.boolean().default(false),
 });
 
+export const deleteTransactionsBulkSchema = z.object({
+  ids: z
+    .array(z.coerce.number().int().positive())
+    .min(1, "Chon it nhat 1 giao dich")
+    .max(100, "Chi duoc xoa toi da 100 giao dich moi lan"),
+});
+
 export const listTransactionQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

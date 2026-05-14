@@ -1,6 +1,9 @@
 import api from "@/lib/axios";
 import type { OverviewData, RangeReport, DailyStat } from "@/types";
 
+const asDailyStats = (value: unknown): DailyStat[] =>
+  Array.isArray(value) ? (value as DailyStat[]) : [];
+
 export const reportService = {
   overview: () =>
     api.get("/reports/overview").then((r) => r.data.data as OverviewData),
@@ -13,7 +16,13 @@ export const reportService = {
   dailyStats: (fromDate: string, toDate: string) =>
     api
       .get("/reports/daily-stats", { params: { fromDate, toDate } })
-      .then((r) => r.data.data as { items: DailyStat[]; range: { from: string; to: string } }),
+      .then((r) => {
+        const data = r.data?.data;
+        return {
+          items: asDailyStats(data?.items),
+          range: data?.range || { from: fromDate, to: toDate },
+        };
+      }),
 
   compareMonths: () =>
     api.get("/reports/compare-months").then((r) => r.data.data),

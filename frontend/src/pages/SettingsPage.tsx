@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage, Separator } from "@/components/ui/
 import { PageHeader } from "@/components/common/PageHeader";
 import { authService } from "@/services/authService";
 import { getErrorMessage } from "@/lib/axios";
+import { getBackendAssetUrl } from "@/lib/env";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { cn } from "@/lib/utils";
@@ -104,24 +105,18 @@ export default function SettingsPage() {
     .slice(0, 2)
     .toUpperCase();
 
-  const avatarSrc = user.avatarUrl
-    ? user.avatarUrl.startsWith("http")
-      ? user.avatarUrl
-      : `${import.meta.env.MODE === "development" ? "http://localhost:5001" : ""}${user.avatarUrl}`
-    : undefined;
+  const avatarSrc = getBackendAssetUrl(user.avatarUrl);
 
   return (
     <div>
       <PageHeader title="Cài đặt" description="Quản lý hồ sơ và tuỳ chỉnh giao diện" />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Profile */}
         <Card>
           <CardHeader>
             <CardTitle>Hồ sơ</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Avatar */}
             <div className="flex items-center gap-4">
               <div className="relative">
                 <Avatar className="size-20">
@@ -174,9 +169,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Right column */}
         <div className="space-y-6">
-          {/* Theme */}
           <Card>
             <CardHeader>
               <CardTitle>Giao diện</CardTitle>
@@ -202,7 +195,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Change password */}
           <Card>
             <CardHeader>
               <CardTitle>Đổi mật khẩu</CardTitle>

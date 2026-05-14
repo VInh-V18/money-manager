@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, Check, Trash2, AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,19 +18,19 @@ export default function NotificationPage() {
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await notificationService.list(1, 50, filter === "unread");
-      setItems(data.items);
-      setUnreadCount(data.unreadCount);
+      setItems(Array.isArray(data.items) ? data.items : []);
+      setUnreadCount(data.unreadCount || 0);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  };
-  useEffect(() => { load(); }, [filter]);
+  }, [filter]);
+  useEffect(() => { load(); }, [load]);
 
   const markRead = async (id: number) => {
     try {

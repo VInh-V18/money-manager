@@ -13,14 +13,13 @@ import {
 import { hashPassword, comparePassword } from "../utils/bcrypt.js";
 import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
 import { sendOtpEmail } from "./mailService.js";
+import env from "../config/env.js";
 import {
-  AppError,
   badRequest,
   unauthorizedError,
   notFoundError,
   conflictError,
 } from "../utils/errors.js";
-import env from "../config/env.js";
 import { addDays } from "../utils/date.js";
 
 const OTP_TTL_MINUTES = 10;
@@ -56,10 +55,47 @@ const generateOtp = () =>
 const generateResetToken = () =>
   crypto.randomBytes(32).toString("hex");
 
+const createDefaultCategories = (userId) => [
+  ...DEFAULT_INCOME_CATS.map((c, i) => ({
+    ...c,
+    userId,
+    type: "income",
+    isSystem: true,
+    sortOrder: i,
+  })),
+  ...DEFAULT_EXPENSE_CATS.map((c, i) => ({
+    ...c,
+    userId,
+    type: "expense",
+    isSystem: true,
+    sortOrder: i,
+  })),
+];
+
+const safeUserJson = (user) => {
+  const safeUser = user.toJSON();
+  delete safeUser.hashedPassword;
+  return safeUser;
+};
+
+const issueSession = async (user, { userAgent, ipAddress } = {}) => {
+  const accessToken = signAccessToken({ id: user.id });
+  const refreshToken = signRefreshToken({ id: user.id });
+
+  await RefreshToken.create({
+    userId: user.id,
+    token: refreshToken,
+    userAgent: userAgent?.slice(0, 500),
+    ipAddress,
+    expiresAt: addDays(new Date(), 7),
+  });
+
+  return { user: safeUserJson(user), accessToken, refreshToken };
+};
+
 /**
  * Dang ky:
- *   - Tao user (chua verify)
- *   - Tao OTP + gui email
+ *   - Tao user da verify
  *   - Tao 18 danh muc mac dinh (10 chi + 8 thu) -> de user dung ngay
  */
 export const signUpService = async ({ username, email, password, displayName }) => {
@@ -83,49 +119,13 @@ export const signUpService = async ({ username, email, password, displayName }) 
         email,
         hashedPassword: await hashPassword(password),
         displayName,
-        isVerified: false,
+        isVerified: true,
       },
       { transaction: dbTx }
     );
 
     // tao danh muc mac dinh cho user moi
-    const cats = [
-      ...DEFAULT_INCOME_CATS.map((c, i) => ({
-        ...c,
-        userId: user.id,
-        type: "income",
-        isSystem: true,
-        sortOrder: i,
-      })),
-      ...DEFAULT_EXPENSE_CATS.map((c, i) => ({
-        ...c,
-        userId: user.id,
-        type: "expense",
-        isSystem: true,
-        sortOrder: i,
-      })),
-    ];
-    await Category.bulkCreate(cats, { transaction: dbTx });
-
-    // tao OTP
-    const code = generateOtp();
-    await Otp.create(
-      {
-        userId: user.id,
-        purpose: "verify_email",
-        code,
-        expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
-      },
-      { transaction: dbTx }
-    );
-
-    // gui mail (ngoai transaction de neu mail loi van OK)
-    sendOtpEmail({
-      to: email,
-      code,
-      purpose: "verify_email",
-      displayName,
-    }).catch((e) => console.error("Mail loi:", e.message));
+    await Category.bulkCreate(createDefaultCategories(user.id), { transaction: dbTx });
 
     return user;
   });
@@ -189,12 +189,12 @@ export const resendOtpService = async ({ email, purpose }) => {
     expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
   });
 
-  sendOtpEmail({
+  await sendOtpEmail({
     to: email,
     code,
     purpose,
     displayName: user.displayName,
-  }).catch((e) => console.error("Mail loi:", e.message));
+  });
 
   return { sent: true };
 };
@@ -251,29 +251,178 @@ export const signInService = async ({ identifier, password, userAgent, ipAddress
   const ok = await comparePassword(password, user.hashedPassword);
   if (!ok) throw unauthorizedError("Sai thong tin dang nhap");
 
-  if (!user.isVerified) {
-    throw new AppError("Tai khoan chua xac thuc email", 403, {
-      requireVerification: true,
-      email: user.email,
+  return issueSession(user, { userAgent, ipAddress });
+};
+
+const oauthProviders = {
+  google: {
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+    profileUrl: "https://www.googleapis.com/oauth2/v3/userinfo",
+    clientId: () => env.GOOGLE_CLIENT_ID,
+    clientSecret: () => env.GOOGLE_CLIENT_SECRET,
+    scope: "openid email profile",
+    mapProfile: (profile) => ({
+      email: profile.email,
+      displayName: profile.name || profile.email,
+      avatarUrl: profile.picture || null,
+    }),
+  },
+  facebook: {
+    authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
+    tokenUrl: "https://graph.facebook.com/v19.0/oauth/access_token",
+    profileUrl: "https://graph.facebook.com/me?fields=id,name,email,picture.type(large)",
+    clientId: () => env.FACEBOOK_CLIENT_ID,
+    clientSecret: () => env.FACEBOOK_CLIENT_SECRET,
+    scope: "email,public_profile",
+    mapProfile: (profile) => ({
+      email: profile.email,
+      displayName: profile.name || profile.email,
+      avatarUrl: profile.picture?.data?.url || null,
+    }),
+  },
+  github: {
+    authUrl: "https://github.com/login/oauth/authorize",
+    tokenUrl: "https://github.com/login/oauth/access_token",
+    profileUrl: "https://api.github.com/user",
+    emailUrl: "https://api.github.com/user/emails",
+    clientId: () => env.GITHUB_CLIENT_ID,
+    clientSecret: () => env.GITHUB_CLIENT_SECRET,
+    scope: "read:user user:email",
+    mapProfile: (profile, email) => ({
+      email,
+      displayName: profile.name || profile.login || email,
+      avatarUrl: profile.avatar_url || null,
+    }),
+  },
+};
+
+const getOAuthProvider = (provider) => {
+  const config = oauthProviders[provider];
+  if (!config) throw badRequest("Nha cung cap OAuth khong hop le");
+  if (!config.clientId() || !config.clientSecret()) {
+    throw badRequest(`Chua cau hinh OAuth ${provider}`);
+  }
+  return config;
+};
+
+export const getOAuthStartUrl = ({ provider, redirectUri, state }) => {
+  const config = getOAuthProvider(provider);
+  const params = new URLSearchParams({
+    client_id: config.clientId(),
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: config.scope,
+    state,
+  });
+  if (provider === "google") {
+    params.set("access_type", "offline");
+    params.set("prompt", "select_account");
+  }
+  return `${config.authUrl}?${params.toString()}`;
+};
+
+const exchangeOAuthCode = async ({ provider, code, redirectUri }) => {
+  const config = getOAuthProvider(provider);
+  const params = new URLSearchParams({
+    client_id: config.clientId(),
+    client_secret: config.clientSecret(),
+    code,
+    redirect_uri: redirectUri,
+    grant_type: "authorization_code",
+  });
+
+  const response = await fetch(config.tokenUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) {
+    throw unauthorizedError(data.error_description || "Khong lay duoc OAuth access token");
+  }
+  return data.access_token;
+};
+
+const fetchOAuthProfile = async (provider, accessToken) => {
+  const config = getOAuthProvider(provider);
+  const profileRes = await fetch(config.profileUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "User-Agent": "money-manager",
+    },
+  });
+  const profile = await profileRes.json().catch(() => ({}));
+  if (!profileRes.ok) throw unauthorizedError("Khong lay duoc thong tin OAuth user");
+
+  if (provider !== "github") return config.mapProfile(profile);
+
+  const emailRes = await fetch(config.emailUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "User-Agent": "money-manager",
+    },
+  });
+  const emails = await emailRes.json().catch(() => []);
+  const primary = Array.isArray(emails)
+    ? emails.find((item) => item.primary && item.verified) || emails.find((item) => item.verified)
+    : null;
+  return config.mapProfile(profile, primary?.email || profile.email);
+};
+
+const makeOAuthUsername = async (email) => {
+  const base = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 40) || "oauth_user";
+  let username = base;
+  let index = 0;
+  while (await User.findOne({ where: { username } })) {
+    index += 1;
+    username = `${base}_${index}`;
+  }
+  return username;
+};
+
+export const signInWithOAuthService = async ({
+  provider,
+  code,
+  redirectUri,
+  userAgent,
+  ipAddress,
+}) => {
+  const oauthToken = await exchangeOAuthCode({ provider, code, redirectUri });
+  const profile = await fetchOAuthProfile(provider, oauthToken);
+  if (!profile.email) throw unauthorizedError("Tai khoan OAuth khong co email da xac thuc");
+
+  let user = await User.findOne({ where: { email: profile.email } });
+  if (!user) {
+    user = await sequelize.transaction(async (dbTx) => {
+      const createdUser = await User.create(
+        {
+          username: await makeOAuthUsername(profile.email),
+          email: profile.email,
+          hashedPassword: await hashPassword(crypto.randomBytes(32).toString("hex")),
+          displayName: profile.displayName || profile.email,
+          avatarUrl: profile.avatarUrl,
+          isVerified: true,
+        },
+        { transaction: dbTx }
+      );
+      await Category.bulkCreate(createDefaultCategories(createdUser.id), { transaction: dbTx });
+      return createdUser;
+    });
+  } else {
+    await user.update({
+      isVerified: true,
+      displayName: user.displayName || profile.displayName,
+      avatarUrl: user.avatarUrl || profile.avatarUrl,
     });
   }
 
-  const accessToken = signAccessToken({ id: user.id });
-  const refreshToken = signRefreshToken({ id: user.id });
-
-  await RefreshToken.create({
-    userId: user.id,
-    token: refreshToken,
-    userAgent: userAgent?.slice(0, 500),
-    ipAddress,
-    expiresAt: addDays(new Date(), 7),
-  });
-
-  // strip password
-  const safeUser = user.toJSON();
-  delete safeUser.hashedPassword;
-
-  return { user: safeUser, accessToken, refreshToken };
+  return issueSession(user, { userAgent, ipAddress });
 };
 
 export const refreshTokenService = async (oldToken) => {

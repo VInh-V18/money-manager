@@ -40,6 +40,9 @@ export default function TransactionPage() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
   const [delLoading, setDelLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +50,7 @@ export default function TransactionPage() {
       const data = await transactionService.list(filter);
       setItems(data.items);
       setPagination(data.pagination);
+      setSelectedIds(new Set());
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -88,6 +92,47 @@ export default function TransactionPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkDeleteLoading(true);
+    try {
+      const res = await transactionService.removeMany(ids);
+      toast.success(res.message || `Đã xoá ${ids.length} giao dịch`);
+      setBulkDeleteOpen(false);
+      setSelectedIds(new Set());
+      load();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allCurrentPageSelected =
+    items.length > 0 && items.every((tx) => selectedIds.has(tx.id));
+
+  const toggleCurrentPage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allCurrentPageSelected) {
+        items.forEach((tx) => next.delete(tx.id));
+      } else {
+        items.forEach((tx) => next.add(tx.id));
+      }
+      return next;
+    });
+  };
+
   const updateFilter = (patch: Partial<ListTxQuery>) => {
     setFilter((f) => ({ ...f, ...patch, page: patch.page ?? 1 }));
   };
@@ -106,15 +151,22 @@ export default function TransactionPage() {
         title="Giao dịch"
         description={`Tổng ${pagination.total} giao dịch`}
         action={
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="size-4" /> Thêm giao dịch
-          </Button>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+            {selectedIds.size > 0 && (
+              <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)} className="flex-1 sm:flex-none">
+                <Trash2 className="size-4" /> Xoá đã chọn ({selectedIds.size})
+              </Button>
+            )}
+            <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="flex-1 sm:flex-none">
+              <Plus className="size-4" /> Thêm giao dịch
+            </Button>
+          </div>
         }
       />
 
       {/* Search + Filter toggle */}
-      <div className="flex gap-2 mb-4">
-        <div className="relative flex-1">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Tìm kiếm theo mô tả, ghi chú..."
@@ -123,7 +175,7 @@ export default function TransactionPage() {
             className="pl-9"
           />
         </div>
-        <Button variant="outline" onClick={() => setShowFilter((s) => !s)} className="relative">
+        <Button variant="outline" onClick={() => setShowFilter((s) => !s)} className="relative w-full sm:w-auto">
           <Filter className="size-4" />
           Bộ lọc
           {activeFilterCount > 0 && (
@@ -213,6 +265,25 @@ export default function TransactionPage() {
         </Card>
       )}
 
+      {!loading && items.length > 0 && (
+        <div className="mb-3 flex flex-col gap-3 rounded-lg border bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={allCurrentPageSelected}
+              onChange={toggleCurrentPage}
+              className="size-4 rounded border-input"
+            />
+            Chọn tất cả trang này
+          </label>
+          {selectedIds.size > 0 && (
+            <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)} className="w-full sm:w-auto">
+              <Trash2 className="size-4" /> Xoá {selectedIds.size} giao dịch
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <Card><CardContent className="p-8">Đang tải...</CardContent></Card>
@@ -232,9 +303,16 @@ export default function TransactionPage() {
           <CardContent className="p-0">
             <ul className="divide-y">
               {items.map((tx) => (
-                <li key={tx.id} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition">
+                <li key={tx.id} className="flex flex-wrap items-start gap-3 p-3 transition hover:bg-accent/50 sm:flex-nowrap sm:items-center sm:gap-4 sm:p-4">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(tx.id)}
+                    onChange={() => toggleSelected(tx.id)}
+                    className="size-4 shrink-0 rounded border-input"
+                    aria-label={`Chọn giao dịch ${tx.description || tx.id}`}
+                  />
                   <IconBubble icon={tx.Category?.icon} color={tx.Category?.color} />
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">
                       {tx.description || tx.Category?.name || "(không có mô tả)"}
                     </p>
@@ -253,13 +331,26 @@ export default function TransactionPage() {
                       )}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className={`font-semibold flex items-center gap-1 ${tx.type === "income" ? "text-income" : "text-expense"}`}>
+                  <div className="ml-9 flex w-[calc(100%-2.25rem)] items-center justify-between gap-2 text-left sm:ml-0 sm:block sm:w-auto sm:shrink-0 sm:text-right">
+                    <p className={`flex items-center gap-1 font-semibold ${tx.type === "income" ? "text-income" : "text-expense"}`}>
                       {tx.type === "income" ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />}
                       {formatCurrency(tx.amount)}
                     </p>
+                    <div className="flex shrink-0 gap-1 sm:hidden">
+                      <Button size="icon-sm" variant="ghost" onClick={() => { setEditing(tx); setFormOpen(true); }}>
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => setDeleting(tx)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
+                  <div className="hidden shrink-0 gap-1 sm:flex">
                     <Button size="icon-sm" variant="ghost" onClick={() => { setEditing(tx); setFormOpen(true); }}>
                       <Pencil className="size-4" />
                     </Button>
@@ -281,11 +372,11 @@ export default function TransactionPage() {
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Trang {pagination.page} / {pagination.totalPages}
           </p>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <Button
               variant="outline"
               size="sm"
@@ -320,6 +411,15 @@ export default function TransactionPage() {
         description="Số dư của ví sẽ được điều chỉnh tương ứng."
         loading={delLoading}
         onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title={`Xoá ${selectedIds.size} giao dịch?`}
+        description="Số dư của các ví liên quan sẽ được hoàn tác theo từng giao dịch đã chọn."
+        loading={bulkDeleteLoading}
+        onConfirm={handleBulkDelete}
       />
     </div>
   );

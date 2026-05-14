@@ -7,7 +7,7 @@ export const getTransporter = () => {
   if (transporter) return transporter;
 
   if (!env.MAIL_USER || !env.MAIL_PASS) {
-    console.warn("⚠ Chua cau hinh MAIL_USER/MAIL_PASS, OTP se chi log ra console");
+    console.warn("Chưa cấu hình MAIL_USER/MAIL_PASS, không thể gửi OTP qua email");
     return null;
   }
 

@@ -145,7 +145,7 @@ export default function TemplatePage() {
     }
   };
 
-  const useTemplate = async (t: ExpenseTemplate) => {
+  const applyTemplate = async (t: ExpenseTemplate) => {
     setUsingId(t.id);
     try {
       await templateService.use(t.id, {});
@@ -210,7 +210,7 @@ export default function TemplatePage() {
                   <Button
                     size="sm"
                     className="col-span-2"
-                    onClick={() => useTemplate(t)}
+                    onClick={() => applyTemplate(t)}
                     loading={usingId === t.id}
                   >
                     <Zap className="size-4" /> Dùng

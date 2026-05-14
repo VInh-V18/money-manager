@@ -16,7 +16,18 @@ export const validate = (schema, source = "body") => (req, res, next) => {
       })),
     });
   }
-  // ghi de bang ban da parse (co default value, da ep kieu)
-  req[source] = result.data;
+  // Express 5 exposes req.query as a getter-only property, so direct assignment
+  // throws. Define an own property to keep parsed/default/coerced query values.
+  if (source === "query") {
+    Object.defineProperty(req, "query", {
+      value: result.data,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+  } else {
+    // ghi de bang ban da parse (co default value, da ep kieu)
+    req[source] = result.data;
+  }
   next();
 };

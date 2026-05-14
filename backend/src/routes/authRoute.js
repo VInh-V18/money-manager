@@ -29,6 +29,8 @@ const authLimiter = rateLimit({
 // ===== Public =====
 router.post("/signup", authLimiter, validate(signUpSchema), ctrl.signUp);
 router.post("/signin", authLimiter, validate(signInSchema), ctrl.signIn);
+router.get("/oauth/:provider", authLimiter, ctrl.oauthStart);
+router.get("/oauth/:provider/callback", authLimiter, ctrl.oauthCallback);
 router.post("/signout", ctrl.signOut);
 router.post("/refresh", ctrl.refreshToken);
 

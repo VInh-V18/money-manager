@@ -19,13 +19,28 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const requestOtp = async () => authService.forgotPassword(email);
+
   const submitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await authService.forgotPassword(email);
-      toast.success("Đã gửi OTP về email");
+      await requestOtp();
+      toast.success("Đã gửi OTP vào email của bạn");
       setStep("otp");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    setLoading(true);
+    try {
+      await requestOtp();
+      setCode("");
+      toast.success("Đã gửi lại OTP vào email của bạn");
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -49,7 +64,10 @@ export default function ForgotPasswordPage() {
 
   const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) return toast.error("Mật khẩu tối thiểu 6 ký tự");
+    if (newPassword.length < 6) {
+      toast.error("Mật khẩu tối thiểu 6 ký tự");
+      return;
+    }
     setLoading(true);
     try {
       await authService.resetPassword({ email, resetToken, newPassword });
@@ -71,7 +89,7 @@ export default function ForgotPasswordPage() {
           </div>
           <CardTitle className="text-2xl">Quên mật khẩu</CardTitle>
           <CardDescription>
-            {step === "email" && "Nhập email để nhận OTP"}
+            {step === "email" && "Nhập email để nhận OTP đặt lại mật khẩu"}
             {step === "otp" && "Nhập mã OTP đã gửi đến email của bạn"}
             {step === "password" && "Tạo mật khẩu mới"}
           </CardDescription>
@@ -81,7 +99,13 @@ export default function ForgotPasswordPage() {
             <form onSubmit={submitEmail} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
               <Button type="submit" className="w-full" loading={loading}>
                 Gửi OTP
@@ -104,6 +128,9 @@ export default function ForgotPasswordPage() {
               <Button type="submit" className="w-full" loading={loading}>
                 Xác nhận OTP
               </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={resendOtp} disabled={loading}>
+                Gửi lại OTP
+              </Button>
             </form>
           )}
 
@@ -115,6 +142,7 @@ export default function ForgotPasswordPage() {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
                   required
                 />
               </div>

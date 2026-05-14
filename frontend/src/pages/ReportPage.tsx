@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Download, FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,

@@ -1,5 +1,8 @@
 import api from "@/lib/axios";
+import { API_BASE_URL } from "@/lib/env";
 import type { User } from "@/types";
+
+export type OAuthProvider = "google" | "facebook" | "github";
 
 export const authService = {
   signUp: (data: { username: string; email: string; password: string; displayName: string }) =>
@@ -12,6 +15,8 @@ export const authService = {
 
   refresh: () => api.post("/auth/refresh").then((r) => r.data.data as { accessToken: string }),
 
+  oauthUrl: (provider: OAuthProvider) => `${API_BASE_URL}/auth/oauth/${provider}`,
+
   fetchMe: () => api.get("/auth/me").then((r) => r.data.data.user as User),
 
   verifyEmail: (email: string, code: string) =>
@@ -21,7 +26,11 @@ export const authService = {
     api.post("/auth/resend-verify-otp", { email }).then((r) => r.data),
 
   forgotPassword: (email: string) =>
-    api.post("/auth/forgot-password", { email }).then((r) => r.data),
+    api.post("/auth/forgot-password", { email }).then((r) => r.data as {
+      success: boolean;
+      message: string;
+      data?: { sent?: boolean };
+    }),
 
   verifyResetOtp: (email: string, code: string) =>
     api.post("/auth/verify-reset-otp", { email, code }).then((r) => r.data.data as { resetToken: string }),

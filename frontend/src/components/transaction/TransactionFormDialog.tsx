@@ -164,7 +164,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
             {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Ví</Label>
               <Controller

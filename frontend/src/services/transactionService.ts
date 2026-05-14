@@ -1,6 +1,14 @@
 import api from "@/lib/axios";
 import type { Transaction, PaginatedResult } from "@/types";
 
+const emptyPage: PaginatedResult<Transaction> = {
+  items: [],
+  pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+};
+
+const asTransactions = (value: unknown): Transaction[] =>
+  Array.isArray(value) ? (value as Transaction[]) : [];
+
 export interface ListTxQuery {
   page?: number;
   limit?: number;
@@ -20,17 +28,25 @@ export const transactionService = {
   list: (query: ListTxQuery = {}) =>
     api
       .get("/transactions", { params: query })
-      .then((r) => r.data.data as PaginatedResult<Transaction>),
+      .then((r) => {
+        const data = r.data?.data;
+        return {
+          ...emptyPage,
+          ...data,
+          items: asTransactions(data?.items),
+          pagination: data?.pagination || emptyPage.pagination,
+        };
+      }),
 
   recent: (limit = 10) =>
     api
       .get("/transactions/recent", { params: { limit } })
-      .then((r) => r.data.data.items as Transaction[]),
+      .then((r) => asTransactions(r.data?.data?.items)),
 
   search: (q: string) =>
     api
       .get("/transactions/search", { params: { q } })
-      .then((r) => r.data.data.items as Transaction[]),
+      .then((r) => asTransactions(r.data?.data?.items)),
 
   get: (id: number) =>
     api.get(`/transactions/${id}`).then((r) => r.data.data.transaction as Transaction),
@@ -53,6 +69,9 @@ export const transactionService = {
     api.put(`/transactions/${id}`, data).then((r) => r.data.data.transaction as Transaction),
 
   remove: (id: number) => api.delete(`/transactions/${id}`).then((r) => r.data),
+
+  removeMany: (ids: number[]) =>
+    api.delete("/transactions/bulk", { data: { ids } }).then((r) => r.data),
 
   createDailyWage: (data: {
     walletId: number;

@@ -53,7 +53,7 @@ export default function DashboardPage() {
         setRangeReport(range);
         const monthRange = ranges.thisMonth;
         const stats = await reportService.dailyStats(monthRange.from, monthRange.to);
-        setDailyStats(stats.items);
+        setDailyStats(stats.items || []);
       } catch (err) {
         toast.error(getErrorMessage(err, "Không tải được dữ liệu"));
       } finally {
