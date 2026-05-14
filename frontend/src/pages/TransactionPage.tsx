@@ -15,6 +15,7 @@ import { TransactionFormDialog } from "@/components/transaction/TransactionFormD
 import { transactionService, type ListTxQuery } from "@/services/transactionService";
 import { walletService, categoryService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
+import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Transaction, Wallet, Category, Pagination } from "@/types";
 
@@ -44,8 +45,8 @@ export default function TransactionPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const data = await transactionService.list(filter);
       setItems(data.items);
@@ -54,11 +55,15 @@ export default function TransactionPage() {
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => onTransactionsChanged(() => {
+    void load({ silent: true });
+  }), [load]);
 
   useEffect(() => {
     Promise.all([walletService.list(), categoryService.list()]).then(([w, c]) => {
@@ -84,7 +89,7 @@ export default function TransactionPage() {
       await transactionService.remove(deleting.id);
       toast.success("Đã xoá giao dịch");
       setDeleting(null);
-      load();
+      void load({ silent: true });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -101,7 +106,7 @@ export default function TransactionPage() {
       toast.success(res.message || `Đã xoá ${ids.length} giao dịch`);
       setBulkDeleteOpen(false);
       setSelectedIds(new Set());
-      load();
+      void load({ silent: true });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -401,7 +406,7 @@ export default function TransactionPage() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         transaction={editing}
-        onSaved={load}
+        onSaved={() => load({ silent: true })}
       />
 
       <ConfirmDialog

@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { notifyTransactionsChanged } from "@/lib/realtime";
 import type { Transaction, PaginatedResult } from "@/types";
 
 const emptyPage: PaginatedResult<Transaction> = {
@@ -63,15 +64,30 @@ export const transactionService = {
     transactionTime?: string;
     allowNegative?: boolean;
   }) =>
-    api.post("/transactions", data).then((r) => r.data.data.transaction as Transaction),
+    api.post("/transactions", data).then((r) => {
+      const transaction = r.data.data.transaction as Transaction;
+      notifyTransactionsChanged({ action: "create", ids: [transaction.id] });
+      return transaction;
+    }),
 
   update: (id: number, data: Record<string, unknown>) =>
-    api.put(`/transactions/${id}`, data).then((r) => r.data.data.transaction as Transaction),
+    api.put(`/transactions/${id}`, data).then((r) => {
+      const transaction = r.data.data.transaction as Transaction;
+      notifyTransactionsChanged({ action: "update", ids: [transaction.id] });
+      return transaction;
+    }),
 
-  remove: (id: number) => api.delete(`/transactions/${id}`).then((r) => r.data),
+  remove: (id: number) =>
+    api.delete(`/transactions/${id}`).then((r) => {
+      notifyTransactionsChanged({ action: "delete", ids: [id] });
+      return r.data;
+    }),
 
   removeMany: (ids: number[]) =>
-    api.delete("/transactions/bulk", { data: { ids } }).then((r) => r.data),
+    api.delete("/transactions/bulk", { data: { ids } }).then((r) => {
+      notifyTransactionsChanged({ action: "bulk-delete", ids });
+      return r.data;
+    }),
 
   createDailyWage: (data: {
     walletId: number;
@@ -81,7 +97,11 @@ export const transactionService = {
     startDate: string;
     description?: string;
   }) =>
-    api.post("/transactions/daily-wage", data).then((r) => r.data.data.transaction),
+    api.post("/transactions/daily-wage", data).then((r) => {
+      const transaction = r.data.data.transaction as Transaction;
+      notifyTransactionsChanged({ action: "create", ids: [transaction.id] });
+      return transaction;
+    }),
 
   createHourlyWage: (data: {
     walletId: number;
@@ -92,5 +112,9 @@ export const transactionService = {
     shift?: string;
     description?: string;
   }) =>
-    api.post("/transactions/hourly-wage", data).then((r) => r.data.data.transaction),
+    api.post("/transactions/hourly-wage", data).then((r) => {
+      const transaction = r.data.data.transaction as Transaction;
+      notifyTransactionsChanged({ action: "create", ids: [transaction.id] });
+      return transaction;
+    }),
 };

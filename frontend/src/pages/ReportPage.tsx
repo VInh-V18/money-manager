@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { reportService, downloadBlob } from "@/services/reportService";
 import { getErrorMessage } from "@/lib/axios";
+import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency, toISODate } from "@/lib/utils";
 import type { RangeReport, DailyStat } from "@/types";
 
@@ -41,8 +42,8 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [r, d] = await Promise.all([
         reportService.range(range.from, range.to),
@@ -53,11 +54,15 @@ export default function ReportPage() {
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [range]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => onTransactionsChanged(() => {
+    void load({ silent: true });
+  }), [load]);
 
   const setPreset = (p: typeof PRESETS[number]) => {
     const today = new Date();

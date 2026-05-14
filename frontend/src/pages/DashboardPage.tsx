@@ -31,6 +31,7 @@ import type { OverviewData, DailyStat, RangeReport } from "@/types";
 import { formatCurrency, formatRelative } from "@/lib/utils";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
+import { onTransactionsChanged } from "@/lib/realtime";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function DashboardPage() {
@@ -62,6 +63,27 @@ export default function DashboardPage() {
     };
     load();
   }, []);
+
+  useEffect(() => onTransactionsChanged(() => {
+    const refresh = async () => {
+      try {
+        const [ov, ranges, range] = await Promise.all([
+          reportService.overview(),
+          reportService.presetRanges(),
+          reportService.range(),
+        ]);
+        setOverview(ov);
+        setRangeReport(range);
+        const monthRange = ranges.thisMonth;
+        const stats = await reportService.dailyStats(monthRange.from, monthRange.to);
+        setDailyStats(stats.items || []);
+      } catch (err) {
+        toast.error(getErrorMessage(err, "Không tải được dữ liệu mới"));
+      }
+    };
+
+    void refresh();
+  }), []);
 
   if (loading) {
     return (

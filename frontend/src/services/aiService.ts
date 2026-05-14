@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { notifyTransactionsChanged } from "@/lib/realtime";
 
 export type AiMode = "advisor" | "forecast" | "risk" | "budget" | "transaction_parser";
 export type AiChatRole = "user" | "assistant";
@@ -70,7 +71,14 @@ export const aiService = {
   naturalTransaction: (text: string) =>
     api
       .post("/ai/natural-transaction", { text })
-      .then((r) => r.data.data as AiNaturalTransactionResponse),
+      .then((r) => {
+        const data = r.data.data as AiNaturalTransactionResponse;
+        const id = typeof data.transaction === "object" && data.transaction !== null && "id" in data.transaction
+          ? Number((data.transaction as { id: unknown }).id)
+          : undefined;
+        notifyTransactionsChanged({ action: "create", ids: id ? [id] : undefined });
+        return data;
+      }),
   spendingTotal: () =>
     api.get("/ai/spending-total").then((r) => r.data.data as AiSpendingTotalResponse),
   monthlyAnalysis: () => api.get("/ai/monthly-analysis").then((r) => r.data.data as AiChatResponse),

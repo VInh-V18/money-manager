@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { IconBubble } from "@/components/common/IconBubble";
 import { WalletFormDialog } from "@/components/wallet/WalletFormDialog";
 import { walletService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
+import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency } from "@/lib/utils";
 import type { Wallet } from "@/types";
 
@@ -32,8 +33,8 @@ export default function WalletPage() {
   const [deleting, setDeleting] = useState<Wallet | null>(null);
   const [delLoading, setDelLoading] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const { wallets, totalBalance } = await walletService.list();
       setWallets(wallets);
@@ -41,11 +42,15 @@ export default function WalletPage() {
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => onTransactionsChanged(() => {
+    void load({ silent: true });
+  }), [load]);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -54,7 +59,7 @@ export default function WalletPage() {
       await walletService.remove(deleting.id);
       toast.success("Đã xoá ví");
       setDeleting(null);
-      load();
+      void load({ silent: true });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -134,7 +139,7 @@ export default function WalletPage() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         wallet={editing}
-        onSaved={load}
+        onSaved={() => load({ silent: true })}
       />
 
       <ConfirmDialog
