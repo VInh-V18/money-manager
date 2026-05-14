@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Wallet as WalletIcon } from "lucide-react";
+import { ArrowRightLeft, Plus, Pencil, Trash2, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,10 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { IconBubble } from "@/components/common/IconBubble";
 import { WalletFormDialog } from "@/components/wallet/WalletFormDialog";
+import { WalletTransferDialog } from "@/components/wallet/WalletTransferDialog";
 import { walletService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
-import { onTransactionsChanged } from "@/lib/realtime";
+import { onTransactionsChanged, onWalletsChanged } from "@/lib/realtime";
 import { formatCurrency } from "@/lib/utils";
 import type { Wallet } from "@/types";
 
@@ -29,6 +30,7 @@ export default function WalletPage() {
   const [totalBalance, setTotalBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [editing, setEditing] = useState<Wallet | null>(null);
   const [deleting, setDeleting] = useState<Wallet | null>(null);
   const [delLoading, setDelLoading] = useState(false);
@@ -49,6 +51,10 @@ export default function WalletPage() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => onTransactionsChanged(() => {
+    void load({ silent: true });
+  }), [load]);
+
+  useEffect(() => onWalletsChanged(() => {
     void load({ silent: true });
   }), [load]);
 
@@ -78,6 +84,17 @@ export default function WalletPage() {
           </Button>
         }
       />
+
+      <div className="mb-4 flex justify-end">
+        <Button
+          variant="outline"
+          onClick={() => setTransferOpen(true)}
+          disabled={wallets.filter((wallet) => wallet.isActive).length < 2}
+          className="w-full sm:w-auto"
+        >
+          <ArrowRightLeft className="size-4" /> Chuyển tiền giữa ví
+        </Button>
+      </div>
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -139,6 +156,13 @@ export default function WalletPage() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         wallet={editing}
+        onSaved={() => load({ silent: true })}
+      />
+
+      <WalletTransferDialog
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        wallets={wallets}
         onSaved={() => load({ silent: true })}
       />
 

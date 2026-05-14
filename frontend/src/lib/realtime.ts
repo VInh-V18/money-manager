@@ -1,4 +1,5 @@
 export const TRANSACTIONS_CHANGED_EVENT = "money-manager:transactions-changed";
+export const WALLETS_CHANGED_EVENT = "money-manager:wallets-changed";
 
 export type TransactionsChangedAction =
   | "create"
@@ -25,4 +26,31 @@ export const onTransactionsChanged = (handler: (detail: TransactionsChangedDetai
 
   window.addEventListener(TRANSACTIONS_CHANGED_EVENT, listener);
   return () => window.removeEventListener(TRANSACTIONS_CHANGED_EVENT, listener);
+};
+
+export type WalletsChangedAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "transfer";
+
+export interface WalletsChangedDetail {
+  action: WalletsChangedAction;
+  ids?: number[];
+}
+
+export const notifyWalletsChanged = (detail: WalletsChangedDetail) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(WALLETS_CHANGED_EVENT, { detail }));
+};
+
+export const onWalletsChanged = (handler: (detail: WalletsChangedDetail) => void) => {
+  if (typeof window === "undefined") return () => {};
+
+  const listener = (event: Event) => {
+    handler((event as CustomEvent<WalletsChangedDetail>).detail);
+  };
+
+  window.addEventListener(WALLETS_CHANGED_EVENT, listener);
+  return () => window.removeEventListener(WALLETS_CHANGED_EVENT, listener);
 };
