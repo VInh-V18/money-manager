@@ -31,7 +31,7 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 p-4">
+    <div className="flex min-h-dvh items-start justify-center overflow-y-auto bg-gradient-to-br from-blue-50 via-background to-indigo-50 px-4 py-6 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 sm:items-center">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-md">
@@ -45,25 +45,33 @@ export default function SignUpPage() {
             <div className="space-y-2">
               <Label htmlFor="displayName">Họ tên</Label>
               <Input id="displayName" {...register("displayName")} placeholder="Nguyễn Văn A" />
-              {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.displayName?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input id="username" {...register("username")} placeholder="nguyenvana" />
-              {errors.username && <p className="text-xs text-destructive">{errors.username.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.username?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" {...register("email")} placeholder="email@example.com" />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.email?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
               <Input id="password" type="password" {...register("password")} placeholder="********" />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.password?.message}
+              </p>
             </div>
 
             <Button type="submit" className="w-full" loading={loading}>

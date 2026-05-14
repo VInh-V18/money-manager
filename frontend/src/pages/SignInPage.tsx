@@ -40,7 +40,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 p-4">
+    <div className="flex min-h-dvh items-start justify-center overflow-y-auto bg-gradient-to-br from-blue-50 via-background to-indigo-50 px-4 py-6 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 sm:items-center">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-md">
@@ -54,7 +54,9 @@ export default function SignInPage() {
             <div className="space-y-2">
               <Label htmlFor="identifier">Email hoặc Username</Label>
               <Input id="identifier" {...register("identifier")} placeholder="demo@money.local" />
-              {errors.identifier && <p className="text-xs text-destructive">{errors.identifier.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.identifier?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -81,7 +83,9 @@ export default function SignInPage() {
                   {showPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </Button>
               </div>
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.password?.message}
+              </p>
             </div>
 
             <Button type="submit" className="w-full" loading={loading}>
