@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { DatabaseBackup, FileSpreadsheet, FileText } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -40,7 +40,7 @@ export default function ReportPage() {
   const [report, setReport] = useState<RangeReport | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [exporting, setExporting] = useState<"excel" | "pdf" | "backup" | null>(null);
 
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
@@ -92,6 +92,19 @@ export default function ReportPage() {
     }
   };
 
+  const handleBackup = async () => {
+    setExporting("backup");
+    try {
+      const res = await reportService.exportBackupJson();
+      downloadBlob(new Blob([res.data], { type: "application/json" }), `money-manager-backup-${toISODate(new Date())}.json`);
+      toast.success("Đã tải backup JSON");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExporting(null);
+    }
+  };
+
   // top 8 expense categories cho pie
   const expensePie = (report?.byCategory || [])
     .filter((c) => c.type === "expense")
@@ -126,6 +139,9 @@ export default function ReportPage() {
               </Button>
               <Button variant="outline" onClick={() => handleExport("pdf")} loading={exporting === "pdf"}>
                 <FileText className="size-4" /> PDF
+              </Button>
+              <Button variant="outline" onClick={handleBackup} loading={exporting === "backup"}>
+                <DatabaseBackup className="size-4" /> Backup
               </Button>
             </div>
           </div>

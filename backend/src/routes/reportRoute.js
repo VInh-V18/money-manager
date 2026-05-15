@@ -14,5 +14,6 @@ router.get("/preset-ranges", ctrl.presetRanges);
 
 router.get("/export/excel", ctrl.exportExcel);
 router.get("/export/pdf", ctrl.exportPdf);
+router.get("/export/backup-json", ctrl.exportBackupJson);
 
 export default router;

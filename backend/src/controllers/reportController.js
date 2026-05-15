@@ -10,6 +10,7 @@ import {
 import {
   exportTransactionsToExcel,
   exportReportToPDF,
+  exportUserBackupJson,
 } from "../services/exportService.js";
 import {
   formatDate,
@@ -84,6 +85,18 @@ export const exportPdf = asyncHandler(async (req, res) => {
     `attachment; filename="bao-cao-${from}_${to}.pdf"`
   );
   res.send(buffer);
+});
+
+// === Backup JSON ===
+export const exportBackupJson = asyncHandler(async (req, res) => {
+  const backup = await exportUserBackupJson(req.user);
+  const today = formatDate(new Date());
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="money-manager-backup-${today}.json"`
+  );
+  res.send(JSON.stringify(backup, null, 2));
 });
 
 // === Helper preset ranges (cho quick filter) ===

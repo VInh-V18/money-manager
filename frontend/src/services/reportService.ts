@@ -42,6 +42,11 @@ export const reportService = {
       params: { fromDate, toDate },
       responseType: "blob",
     }),
+
+  exportBackupJson: () =>
+    api.get("/reports/export/backup-json", {
+      responseType: "blob",
+    }),
 };
 
 /** Helper download blob xuống file */

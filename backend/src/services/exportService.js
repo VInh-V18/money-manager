@@ -1,7 +1,21 @@
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 import { Op } from "sequelize";
-import { Transaction, Wallet, Category } from "../models/index.js";
+import {
+  Transaction,
+  Wallet,
+  Category,
+  Budget,
+  FinancialGoal,
+  Debt,
+  FixedExpense,
+  ExpenseTemplate,
+  WalletTransfer,
+  Notification,
+  ActivityLog,
+  LoginHistory,
+  WalletBalanceHistory,
+} from "../models/index.js";
 import { getReportByRange } from "./reportService.js";
 
 const formatVND = (n) =>
@@ -161,4 +175,67 @@ export const exportReportToPDF = async (userId, fromDate, toDate) => {
 
   doc.end();
   return done;
+};
+
+/**
+ * Backup JSON du lieu ca nhan cua user. Khong bao gom password/token/OTP.
+ */
+export const exportUserBackupJson = async (user) => {
+  const userId = user.id;
+  const [
+    wallets,
+    categories,
+    transactions,
+    budgets,
+    goals,
+    debts,
+    fixedExpenses,
+    templates,
+    walletTransfers,
+    notifications,
+    activityLogs,
+    loginHistory,
+    walletBalanceHistories,
+  ] = await Promise.all([
+    Wallet.findAll({ where: { userId }, paranoid: false, order: [["id", "ASC"]] }),
+    Category.findAll({ where: { userId }, paranoid: false, order: [["id", "ASC"]] }),
+    Transaction.findAll({ where: { userId }, paranoid: false, order: [["transactionDate", "DESC"], ["id", "DESC"]] }),
+    Budget.findAll({ where: { userId }, paranoid: false, order: [["id", "ASC"]] }),
+    FinancialGoal.findAll({ where: { userId }, paranoid: false, order: [["id", "ASC"]] }),
+    Debt.findAll({ where: { userId }, paranoid: false, order: [["id", "ASC"]] }),
+    FixedExpense.findAll({ where: { userId }, paranoid: false, order: [["id", "ASC"]] }),
+    ExpenseTemplate.findAll({ where: { userId }, paranoid: false, order: [["id", "ASC"]] }),
+    WalletTransfer.findAll({ where: { userId }, order: [["id", "ASC"]] }),
+    Notification.findAll({ where: { userId }, order: [["id", "ASC"]] }),
+    ActivityLog.findAll({ where: { userId }, order: [["id", "ASC"]] }),
+    LoginHistory.findAll({ where: { userId }, order: [["id", "ASC"]] }),
+    WalletBalanceHistory.findAll({ where: { userId }, order: [["id", "ASC"]] }),
+  ]);
+
+  const safeUser = user.toJSON();
+  delete safeUser.hashedPassword;
+  delete safeUser.failedLoginCount;
+  delete safeUser.lockedUntil;
+
+  return {
+    version: 1,
+    app: "money-manager",
+    exportedAt: new Date().toISOString(),
+    user: safeUser,
+    data: {
+      wallets,
+      categories,
+      transactions,
+      budgets,
+      goals,
+      debts,
+      fixedExpenses,
+      templates,
+      walletTransfers,
+      notifications,
+      activityLogs,
+      loginHistory,
+      walletBalanceHistories,
+    },
+  };
 };
