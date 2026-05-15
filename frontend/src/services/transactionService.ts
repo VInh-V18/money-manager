@@ -82,6 +82,7 @@ export const transactionService = {
     note?: string;
     transactionDate: string;
     transactionTime?: string;
+    receiptUrl?: string | null;
     allowNegative?: boolean;
     idempotencyKey?: string;
   }) =>
@@ -93,6 +94,14 @@ export const transactionService = {
       notifyTransactionsChanged({ action: "create", ids: [transaction.id] });
       return transaction;
     }),
+
+  uploadReceipt: (file: File) => {
+    const fd = new FormData();
+    fd.append("receipt", file);
+    return api
+      .post("/transactions/receipt", fd, { headers: { "Content-Type": "multipart/form-data" } })
+      .then((r) => r.data.data.receiptUrl as string);
+  },
 
   update: (id: number, data: Record<string, unknown>) =>
     api.put(`/transactions/${id}`, data).then((r) => {

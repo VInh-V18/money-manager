@@ -163,6 +163,14 @@ export const getTransaction = asyncHandler(async (req, res) => {
   return ok(res, { transaction: tx });
 });
 
+export const uploadTransactionReceipt = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw badRequest("Vui long chon anh hoa don");
+  }
+  const receiptUrl = `/uploads/${req.file.filename}`;
+  return ok(res, { receiptUrl }, "Da tai anh hoa don");
+});
+
 export const listDeletedTransactions = asyncHandler(async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));

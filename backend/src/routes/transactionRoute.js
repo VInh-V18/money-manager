@@ -2,6 +2,7 @@ import express from "express";
 import * as ctrl from "../controllers/transactionController.js";
 import { protectedRoute } from "../middlewares/authMiddleware.js";
 import { validate } from "../middlewares/validateMiddleware.js";
+import { uploadImage } from "../middlewares/uploadMiddleware.js";
 import {
   createTransactionSchema,
   deleteTransactionsBulkSchema,
@@ -21,6 +22,7 @@ router.get("/trash", ctrl.listDeletedTransactions);
 
 router.get("/", validate(listTransactionQuerySchema, "query"), ctrl.listTransactions);
 router.post("/", validate(createTransactionSchema), ctrl.createTransaction);
+router.post("/receipt", uploadImage.single("receipt"), ctrl.uploadTransactionReceipt);
 router.delete("/bulk", validate(deleteTransactionsBulkSchema), ctrl.deleteTransactionsBulk);
 
 // helper api thu nhap theo ngay/gio

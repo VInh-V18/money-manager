@@ -3,7 +3,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +11,7 @@ import { CurrencyInput } from "@/components/common/CurrencyInput";
 import { transactionService } from "@/services/transactionService";
 import { walletService, categoryService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
+import { getBackendAssetUrl } from "@/lib/env";
 import { toISODate } from "@/lib/utils";
 import type { Transaction, Wallet, Category } from "@/types";
 
@@ -22,6 +23,7 @@ const schema = z.object({
   description: z.string().optional(),
   note: z.string().optional(),
   transactionDate: z.string(),
+  receiptUrl: z.string().nullable().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -36,6 +38,8 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
   const isEdit = !!transaction;
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | undefined>();
 
   const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -47,6 +51,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       description: "",
       note: "",
       transactionDate: toISODate(new Date()),
+      receiptUrl: null,
     },
   });
 
@@ -72,7 +77,9 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         description: transaction.description || "",
         note: transaction.note || "",
         transactionDate: transaction.transactionDate,
+        receiptUrl: transaction.receiptUrl || null,
       });
+      setReceiptPreview(getBackendAssetUrl(transaction.receiptUrl));
     } else {
       reset({
         type: "expense",
@@ -82,15 +89,23 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         description: "",
         note: "",
         transactionDate: toISODate(new Date()),
+        receiptUrl: null,
       });
+      setReceiptPreview(undefined);
     }
+    setReceiptFile(null);
   }, [transaction, reset, open, wallets]);
 
   const onSubmit = async (data: FormData) => {
     try {
+      let receiptUrl = data.receiptUrl || null;
+      if (receiptFile) {
+        receiptUrl = await transactionService.uploadReceipt(receiptFile);
+      }
       const payload = {
         ...data,
         categoryId: data.categoryId || null,
+        receiptUrl,
       };
       if (isEdit) {
         await transactionService.update(transaction!.id, payload);
@@ -106,6 +121,21 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
     }
   };
 
+  const handleReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Chỉ chọn file ảnh hóa đơn");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh hóa đơn tối đa 5MB");
+      return;
+    }
+    setReceiptFile(file);
+    setReceiptPreview(URL.createObjectURL(file));
+  };
+
   const filteredCats = categories.filter((c) => c.type === txType);
 
   return (
@@ -113,6 +143,9 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Sửa giao dịch" : "Thêm giao dịch"}</DialogTitle>
+          <DialogDescription>
+            Nhập thông tin giao dịch và đính kèm ảnh hóa đơn nếu có.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Tabs Type */}
@@ -218,6 +251,16 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
           <div className="space-y-2">
             <Label>Ghi chú</Label>
             <Textarea {...register("note")} rows={2} placeholder="Tuỳ chọn" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Ảnh hóa đơn</Label>
+            <Input type="file" accept="image/*" onChange={handleReceiptChange} />
+            {receiptPreview && (
+              <div className="overflow-hidden rounded-lg border">
+                <img src={receiptPreview} alt="Ảnh hóa đơn" className="max-h-48 w-full object-contain bg-muted" />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
