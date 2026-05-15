@@ -1,6 +1,7 @@
 import express from "express";
 import * as ctrl from "../controllers/reportController.js";
 import { protectedRoute } from "../middlewares/authMiddleware.js";
+import { uploadJson } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 router.use(protectedRoute);
@@ -15,5 +16,6 @@ router.get("/preset-ranges", ctrl.presetRanges);
 router.get("/export/excel", ctrl.exportExcel);
 router.get("/export/pdf", ctrl.exportPdf);
 router.get("/export/backup-json", ctrl.exportBackupJson);
+router.post("/import/backup-json", uploadJson.single("backup"), ctrl.restoreBackupJson);
 
 export default router;

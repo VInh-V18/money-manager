@@ -35,3 +35,14 @@ export const uploadImage = multer({
   fileFilter,
   limits: { fileSize: env.MAX_FILE_SIZE },
 });
+
+export const uploadJson = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (!/\.json$/i.test(file.originalname) && file.mimetype !== "application/json") {
+      return cb(new Error("Chi cho phep upload file JSON"), false);
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: env.MAX_FILE_SIZE },
+});

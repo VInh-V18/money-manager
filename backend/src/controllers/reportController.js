@@ -1,5 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok } from "../utils/response.js";
+import { badRequest } from "../utils/errors.js";
 import {
   getOverview,
   getReportByRange,
@@ -11,6 +12,7 @@ import {
   exportTransactionsToExcel,
   exportReportToPDF,
   exportUserBackupJson,
+  restoreUserBackupJson,
 } from "../services/exportService.js";
 import {
   formatDate,
@@ -97,6 +99,22 @@ export const exportBackupJson = asyncHandler(async (req, res) => {
     `attachment; filename="money-manager-backup-${today}.json"`
   );
   res.send(JSON.stringify(backup, null, 2));
+});
+
+// === Restore JSON backup ===
+export const restoreBackupJson = asyncHandler(async (req, res) => {
+  if (!req.file?.buffer) {
+    return res.status(400).json({ success: false, message: "Vui long chon file backup JSON" });
+  }
+  const text = req.file.buffer.toString("utf8");
+  let backup;
+  try {
+    backup = JSON.parse(text);
+  } catch {
+    throw badRequest("File JSON khong hop le");
+  }
+  const result = await restoreUserBackupJson(req.user.id, backup);
+  return ok(res, result, "Restore backup thanh cong");
 });
 
 // === Helper preset ranges (cho quick filter) ===

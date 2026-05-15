@@ -47,6 +47,14 @@ export const reportService = {
     api.get("/reports/export/backup-json", {
       responseType: "blob",
     }),
+
+  restoreBackupJson: (file: File) => {
+    const fd = new FormData();
+    fd.append("backup", file);
+    return api
+      .post("/reports/import/backup-json", fd, { headers: { "Content-Type": "multipart/form-data" } })
+      .then((r) => r.data.data as Record<string, number>);
+  },
 };
 
 /** Helper download blob xuống file */

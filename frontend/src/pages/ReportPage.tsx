@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { DatabaseBackup, FileSpreadsheet, FileText } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { DatabaseBackup, FileSpreadsheet, FileText, FileUp } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -40,7 +40,8 @@ export default function ReportPage() {
   const [report, setReport] = useState<RangeReport | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState<"excel" | "pdf" | "backup" | null>(null);
+  const [exporting, setExporting] = useState<"excel" | "pdf" | "backup" | "restore" | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
@@ -105,6 +106,26 @@ export default function ReportPage() {
     }
   };
 
+  const handleRestoreFile = async (file?: File) => {
+    if (!file) return;
+    if (!window.confirm("Restore sẽ nhập thêm dữ liệu từ file backup vào tài khoản hiện tại. Tiếp tục?")) {
+      return;
+    }
+    setExporting("restore");
+    try {
+      const result = await reportService.restoreBackupJson(file);
+      toast.success(
+        `Đã restore: ${result.wallets || 0} ví, ${result.categories || 0} danh mục, ${result.transactions || 0} giao dịch`
+      );
+      void load({ silent: true });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExporting(null);
+      if (restoreInputRef.current) restoreInputRef.current.value = "";
+    }
+  };
+
   // top 8 expense categories cho pie
   const expensePie = (report?.byCategory || [])
     .filter((c) => c.type === "expense")
@@ -143,6 +164,16 @@ export default function ReportPage() {
               <Button variant="outline" onClick={handleBackup} loading={exporting === "backup"}>
                 <DatabaseBackup className="size-4" /> Backup
               </Button>
+              <Button variant="outline" onClick={() => restoreInputRef.current?.click()} loading={exporting === "restore"}>
+                <FileUp className="size-4" /> Restore
+              </Button>
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => void handleRestoreFile(event.target.files?.[0])}
+              />
             </div>
           </div>
 

@@ -15,7 +15,9 @@ import {
   ActivityLog,
   LoginHistory,
   WalletBalanceHistory,
+  sequelize,
 } from "../models/index.js";
+import { badRequest } from "../utils/errors.js";
 import { getReportByRange } from "./reportService.js";
 
 const formatVND = (n) =>
@@ -238,4 +240,236 @@ export const exportUserBackupJson = async (user) => {
       walletBalanceHistories,
     },
   };
+};
+
+const pickFields = (source, fields, extra = {}) => {
+  const output = { ...extra };
+  for (const field of fields) {
+    if (source?.[field] !== undefined) output[field] = source[field];
+  }
+  return output;
+};
+
+const WALLET_FIELDS = [
+  "name",
+  "type",
+  "balance",
+  "initialBalance",
+  "currency",
+  "color",
+  "icon",
+  "note",
+  "isActive",
+  "excludeFromTotal",
+];
+const CATEGORY_FIELDS = ["name", "type", "icon", "color", "monthlyBudget", "note", "isSystem", "sortOrder"];
+const TRANSACTION_FIELDS = [
+  "type",
+  "subType",
+  "amount",
+  "description",
+  "note",
+  "transactionDate",
+  "transactionTime",
+  "receiptUrl",
+  "metadata",
+];
+const BUDGET_FIELDS = [
+  "name",
+  "amount",
+  "period",
+  "startDate",
+  "endDate",
+  "warnThreshold",
+  "strictMode",
+  "isActive",
+  "note",
+];
+const GOAL_FIELDS = [
+  "name",
+  "targetAmount",
+  "currentAmount",
+  "targetDate",
+  "startDate",
+  "icon",
+  "color",
+  "status",
+  "note",
+];
+const DEBT_FIELDS = [
+  "type",
+  "personName",
+  "personPhone",
+  "amount",
+  "paidAmount",
+  "borrowedDate",
+  "dueDate",
+  "status",
+  "note",
+];
+const FIXED_EXPENSE_FIELDS = [
+  "name",
+  "amount",
+  "frequency",
+  "customIntervalDays",
+  "dayOfMonth",
+  "dayOfWeek",
+  "startDate",
+  "endDate",
+  "nextDueDate",
+  "lastGeneratedDate",
+  "autoDeduct",
+  "remindDaysBefore",
+  "isActive",
+  "note",
+];
+const TEMPLATE_FIELDS = [
+  "name",
+  "defaultAmount",
+  "type",
+  "icon",
+  "color",
+  "defaultNote",
+  "isPinned",
+  "sortOrder",
+  "usageCount",
+];
+
+export const restoreUserBackupJson = async (userId, backup) => {
+  if (!backup || backup.app !== "money-manager" || !backup.data) {
+    throw badRequest("File backup khong hop le");
+  }
+
+  const data = backup.data;
+  const sourceWallets = Array.isArray(data.wallets) ? data.wallets : [];
+  const sourceCategories = Array.isArray(data.categories) ? data.categories : [];
+  const sourceTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+  const sourceBudgets = Array.isArray(data.budgets) ? data.budgets : [];
+  const sourceGoals = Array.isArray(data.goals) ? data.goals : [];
+  const sourceDebts = Array.isArray(data.debts) ? data.debts : [];
+  const sourceFixedExpenses = Array.isArray(data.fixedExpenses) ? data.fixedExpenses : [];
+  const sourceTemplates = Array.isArray(data.templates) ? data.templates : [];
+
+  return sequelize.transaction(async (dbTx) => {
+    const walletIdMap = new Map();
+    const categoryIdMap = new Map();
+
+    for (const wallet of sourceWallets) {
+      const created = await Wallet.create(
+        pickFields(wallet, WALLET_FIELDS, { userId }),
+        { transaction: dbTx }
+      );
+      walletIdMap.set(Number(wallet.id), created.id);
+    }
+
+    const pendingCategoryParents = [];
+    for (const category of sourceCategories) {
+      const created = await Category.create(
+        pickFields(category, CATEGORY_FIELDS, { userId, parentId: null }),
+        { transaction: dbTx }
+      );
+      categoryIdMap.set(Number(category.id), created.id);
+      if (category.parentId) {
+        pendingCategoryParents.push({ created, oldParentId: Number(category.parentId) });
+      }
+    }
+    for (const item of pendingCategoryParents) {
+      const mappedParentId = categoryIdMap.get(item.oldParentId);
+      if (mappedParentId) {
+        await item.created.update({ parentId: mappedParentId }, { transaction: dbTx });
+      }
+    }
+
+    let transactions = 0;
+    for (const tx of sourceTransactions) {
+      const walletId = walletIdMap.get(Number(tx.walletId));
+      if (!walletId) continue;
+      await Transaction.create(
+        pickFields(tx, TRANSACTION_FIELDS, {
+          userId,
+          walletId,
+          categoryId: tx.categoryId ? categoryIdMap.get(Number(tx.categoryId)) || null : null,
+        }),
+        { transaction: dbTx }
+      );
+      transactions++;
+    }
+
+    let budgets = 0;
+    for (const budget of sourceBudgets) {
+      await Budget.create(
+        pickFields(budget, BUDGET_FIELDS, {
+          userId,
+          categoryId: budget.categoryId ? categoryIdMap.get(Number(budget.categoryId)) || null : null,
+        }),
+        { transaction: dbTx }
+      );
+      budgets++;
+    }
+
+    let goals = 0;
+    for (const goal of sourceGoals) {
+      await FinancialGoal.create(
+        pickFields(goal, GOAL_FIELDS, {
+          userId,
+          walletId: goal.walletId ? walletIdMap.get(Number(goal.walletId)) || null : null,
+        }),
+        { transaction: dbTx }
+      );
+      goals++;
+    }
+
+    let debts = 0;
+    for (const debt of sourceDebts) {
+      await Debt.create(
+        pickFields(debt, DEBT_FIELDS, {
+          userId,
+          walletId: debt.walletId ? walletIdMap.get(Number(debt.walletId)) || null : null,
+        }),
+        { transaction: dbTx }
+      );
+      debts++;
+    }
+
+    let fixedExpenses = 0;
+    for (const fixedExpense of sourceFixedExpenses) {
+      const walletId = fixedExpense.walletId ? walletIdMap.get(Number(fixedExpense.walletId)) || null : null;
+      if (!walletId) continue;
+      await FixedExpense.create(
+        pickFields(fixedExpense, FIXED_EXPENSE_FIELDS, {
+          userId,
+          walletId,
+          categoryId: fixedExpense.categoryId
+            ? categoryIdMap.get(Number(fixedExpense.categoryId)) || null
+            : null,
+        }),
+        { transaction: dbTx }
+      );
+      fixedExpenses++;
+    }
+
+    let templates = 0;
+    for (const template of sourceTemplates) {
+      await ExpenseTemplate.create(
+        pickFields(template, TEMPLATE_FIELDS, {
+          userId,
+          walletId: template.walletId ? walletIdMap.get(Number(template.walletId)) || null : null,
+          categoryId: template.categoryId ? categoryIdMap.get(Number(template.categoryId)) || null : null,
+        }),
+        { transaction: dbTx }
+      );
+      templates++;
+    }
+
+    return {
+      wallets: walletIdMap.size,
+      categories: categoryIdMap.size,
+      transactions,
+      budgets,
+      goals,
+      debts,
+      fixedExpenses,
+      templates,
+    };
+  });
 };
