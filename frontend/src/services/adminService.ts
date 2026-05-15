@@ -22,4 +22,9 @@ export const adminService = {
     api
       .get("/admin/feedback", { params: { page, limit } })
       .then((r) => r.data.data as PaginatedResult<Feedback>),
+
+  updateFeedbackStatus: (id: number, status: Feedback["status"]) =>
+    api
+      .put(`/admin/feedback/${id}/status`, { status })
+      .then((r) => r.data.data.feedback as Feedback),
 };
