@@ -69,6 +69,7 @@ export interface ActivityLog {
   payload: unknown;
   ipAddress: string | null;
   createdAt: string;
+  User?: Pick<User, "id" | "email" | "displayName">;
 }
 
 export interface Feedback {

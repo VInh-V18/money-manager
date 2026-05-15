@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router";
-import { Shield } from "lucide-react";
+import { Activity, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,17 +10,27 @@ import { adminService, type AdminDashboard } from "@/services/adminService";
 import { getErrorMessage } from "@/lib/axios";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { formatDateTime } from "@/lib/utils";
-import type { Feedback, User } from "@/types";
+import type { ActivityLog, Feedback, User } from "@/types";
 
 const ADMIN_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "SUPPORT", "AUDITOR"]);
 const FEEDBACK_STATUSES: Feedback["status"][] = ["reviewing", "resolved", "closed"];
 const USER_ROLES: User["role"][] = ["USER", "PREMIUM_USER", "SUPPORT", "AUDITOR", "ADMIN", "SUPER_ADMIN"];
+
+const formatPayload = (payload: unknown) => {
+  if (!payload || typeof payload !== "object") return "";
+  try {
+    return JSON.stringify(payload).slice(0, 120);
+  } catch {
+    return "";
+  }
+};
 
 export default function AdminPage() {
   const user = useAuthStore((state) => state.user);
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [feedbackStatus, setFeedbackStatus] = useState<Feedback["status"] | "all">("all");
   const [loading, setLoading] = useState(true);
 
@@ -36,11 +46,13 @@ export default function AdminPage() {
       adminService.dashboard(),
       adminService.users(1, 8),
       adminService.feedback(1, 12),
+      adminService.systemLogs(1, 12),
     ])
-      .then(([stats, userData, feedbackData]) => {
+      .then(([stats, userData, feedbackData, logData]) => {
         setDashboard(stats);
         setUsers(userData.items);
         setFeedback(feedbackData.items);
+        setLogs(logData.items);
       })
       .catch((err) => toast.error(getErrorMessage(err)))
       .finally(() => setLoading(false));
@@ -188,6 +200,37 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="size-5" />
+                System logs gan day
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {logs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Chua co log he thong.</p>
+              ) : logs.map((item) => {
+                const payload = formatPayload(item.payload);
+                return (
+                  <div key={item.id} className="rounded-lg border p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-medium">{item.action}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.entityType}
+                          {item.entityId ? ` #${item.entityId}` : ""} - {item.User?.email ?? `User ${item.userId}`}
+                        </p>
+                        {payload && <p className="mt-1 break-words text-xs text-muted-foreground">{payload}</p>}
+                      </div>
+                      <p className="shrink-0 text-xs text-muted-foreground">{formatDateTime(item.createdAt)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

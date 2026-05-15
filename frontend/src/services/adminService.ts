@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import type { Feedback, PaginatedResult, User } from "@/types";
+import type { ActivityLog, Feedback, PaginatedResult, User } from "@/types";
 
 export interface AdminDashboard {
   totalUsers: number;
@@ -32,4 +32,9 @@ export const adminService = {
     api
       .put(`/admin/feedback/${id}/status`, { status })
       .then((r) => r.data.data.feedback as Feedback),
+
+  systemLogs: (page = 1, limit = 20) =>
+    api
+      .get("/admin/system-logs", { params: { page, limit } })
+      .then((r) => r.data.data as PaginatedResult<ActivityLog>),
 };
