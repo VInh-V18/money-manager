@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { Plus, Pencil, Trash2, Filter, X, Search, ListOrdered, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Bookmark, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Filter, X, Search, ListOrdered, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Bookmark, Save, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,9 @@ export default function TransactionPage() {
   const [loading, setLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
   const [savedFilters, setSavedFilters] = useState<SavedTxFilter[]>(() => readSavedFilters());
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashItems, setTrashItems] = useState<Transaction[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
 
   // filters
   const [filter, setFilter] = useState<ListTxQuery>({
@@ -136,6 +139,36 @@ export default function TransactionPage() {
     }
   };
 
+  const loadTrash = async () => {
+    setTrashLoading(true);
+    try {
+      const data = await transactionService.trash(1, 20);
+      setTrashItems(data.items);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setTrashLoading(false);
+    }
+  };
+
+  const toggleTrash = () => {
+    setShowTrash((current) => {
+      const next = !current;
+      if (next) void loadTrash();
+      return next;
+    });
+  };
+
+  const restoreTransaction = async (id: number) => {
+    try {
+      await transactionService.restore(id);
+      toast.success("Đã khôi phục giao dịch");
+      await Promise.all([load({ silent: true }), loadTrash()]);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
   const toggleSelected = (id: number) => {
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -218,6 +251,9 @@ export default function TransactionPage() {
             )}
             <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="flex-1 sm:flex-none">
               <Plus className="size-4" /> Thêm giao dịch
+            </Button>
+            <Button variant="outline" onClick={toggleTrash} className="flex-1 sm:flex-none">
+              <RotateCcw className="size-4" /> Thùng rác
             </Button>
           </div>
         }
@@ -364,6 +400,48 @@ export default function TransactionPage() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {showTrash && (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">Thùng rác giao dịch</p>
+                <p className="text-sm text-muted-foreground">Khôi phục giao dịch sẽ tính lại số dư ví ngay.</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={toggleTrash}>
+                <X className="size-4" />
+              </Button>
+            </div>
+            {trashLoading ? (
+              <p className="text-sm text-muted-foreground">Đang tải thùng rác...</p>
+            ) : trashItems.length === 0 ? (
+              <EmptyState title="Thùng rác trống" />
+            ) : (
+              <div className="space-y-2">
+                {trashItems.map((tx) => (
+                  <div key={tx.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{tx.description || tx.Category?.name || "(không mô tả)"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(tx.transactionDate)} · Xóa lúc {tx.deletedAt ? formatDate(tx.deletedAt) : "không rõ"}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <span className={tx.type === "income" ? "font-semibold text-income" : "font-semibold text-expense"}>
+                        {formatCurrency(tx.amount)}
+                      </span>
+                      <Button size="sm" variant="outline" onClick={() => restoreTransaction(tx.id)}>
+                        <RotateCcw className="size-4" /> Khôi phục
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

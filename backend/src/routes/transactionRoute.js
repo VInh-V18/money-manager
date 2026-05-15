@@ -17,6 +17,7 @@ router.use(protectedRoute);
 // route co tham so cu the dat truoc /:id
 router.get("/recent", ctrl.getRecentTransactions);
 router.get("/search", ctrl.searchTransactions);
+router.get("/trash", ctrl.listDeletedTransactions);
 
 router.get("/", validate(listTransactionQuerySchema, "query"), ctrl.listTransactions);
 router.post("/", validate(createTransactionSchema), ctrl.createTransaction);
@@ -35,6 +36,7 @@ router.post(
 );
 
 router.get("/:id", ctrl.getTransaction);
+router.post("/:id/restore", ctrl.restoreTransaction);
 router.put("/:id", validate(updateTransactionSchema), ctrl.updateTransaction);
 router.delete("/:id", ctrl.deleteTransaction);
 

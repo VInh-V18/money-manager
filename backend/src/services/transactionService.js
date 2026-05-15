@@ -173,6 +173,13 @@ export const deleteTransactionWithBalance = async (tx, dbTx) => {
   await tx.destroy({ transaction: dbTx });
 };
 
+export const restoreTransactionWithBalance = async (tx, dbTx, { allowNegative = true } = {}) => {
+  await checkBalance(tx.walletId, tx.amount, tx.type, allowNegative, dbTx);
+  await tx.restore({ transaction: dbTx });
+  await applyToWallet(tx, +1, dbTx, "transaction_restore");
+  return tx;
+};
+
 /**
  * Chuyen tien giua 2 vi:
  *   - Tru fromWallet (amount + fee)

@@ -172,6 +172,7 @@ export interface Transaction {
   fixedExpenseId: number | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+  deletedAt?: string | null;
   Wallet?: Wallet;
   Category?: Category;
 }

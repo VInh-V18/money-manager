@@ -51,6 +51,19 @@ export const transactionService = {
       .get("/transactions/recent", { params: { limit } })
       .then((r) => asTransactions(r.data?.data?.items)),
 
+  trash: (page = 1, limit = 20) =>
+    api
+      .get("/transactions/trash", { params: { page, limit } })
+      .then((r) => {
+        const data = r.data?.data;
+        return {
+          ...emptyPage,
+          ...data,
+          items: asTransactions(data?.items),
+          pagination: data?.pagination || emptyPage.pagination,
+        };
+      }),
+
   search: (q: string) =>
     api
       .get("/transactions/search", { params: { q } })
@@ -98,6 +111,13 @@ export const transactionService = {
     api.delete("/transactions/bulk", { data: { ids } }).then((r) => {
       notifyTransactionsChanged({ action: "bulk-delete", ids });
       return r.data;
+    }),
+
+  restore: (id: number) =>
+    api.post(`/transactions/${id}/restore`).then((r) => {
+      const transaction = r.data.data.transaction as Transaction;
+      notifyTransactionsChanged({ action: "restore", ids: [transaction.id] });
+      return transaction;
     }),
 
   createDailyWage: (data: {

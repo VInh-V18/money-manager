@@ -13,6 +13,7 @@ import {
   createTransactionWithBalance,
   updateTransactionWithBalance,
   deleteTransactionWithBalance,
+  restoreTransactionWithBalance,
 } from "../services/transactionService.js";
 import { writeActivityLog } from "../services/activityLogService.js";
 
@@ -160,6 +161,32 @@ export const getTransaction = asyncHandler(async (req, res) => {
   if (!tx) throw notFoundError("Khong tim thay giao dich");
   if (tx.userId !== req.user.id) throw forbiddenError();
   return ok(res, { transaction: tx });
+});
+
+export const listDeletedTransactions = asyncHandler(async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+  const { rows, count } = await Transaction.findAndCountAll({
+    where: {
+      userId: req.user.id,
+      deletedAt: { [Op.ne]: null },
+    },
+    paranoid: false,
+    order: [["deletedAt", "DESC"]],
+    limit,
+    offset: (page - 1) * limit,
+    include: transactionInclude,
+  });
+
+  return ok(res, {
+    items: rows,
+    pagination: {
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil(count / limit),
+    },
+  });
 });
 
 // ===== Tao giao dich (logic chinh) =====
@@ -321,6 +348,32 @@ export const deleteTransactionsBulk = asyncHandler(async (req, res) => {
     { deletedCount: transactions.length },
     `Da xoa ${transactions.length} giao dich va hoan tac so du`
   );
+});
+
+export const restoreTransaction = asyncHandler(async (req, res) => {
+  const tx = await Transaction.findByPk(req.params.id, { paranoid: false });
+  if (!tx) throw notFoundError("Khong tim thay giao dich");
+  if (tx.userId !== req.user.id) throw forbiddenError();
+  if (!tx.deletedAt) throw badRequest("Giao dich chua bi xoa");
+
+  await sequelize.transaction(async (dbTx) => {
+    const oldValue = tx.toJSON();
+    await restoreTransactionWithBalance(tx, dbTx);
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "restore",
+      entityType: "transaction",
+      entityId: tx.id,
+      payload: { oldValue, newValue: tx.toJSON() },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
+  });
+
+  const full = await Transaction.findByPk(tx.id, {
+    include: transactionInclude,
+  });
+  return ok(res, { transaction: full }, "Da khoi phuc giao dich");
 });
 
 // ===== Helper: thu nhap theo ngay =====

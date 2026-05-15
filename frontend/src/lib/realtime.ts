@@ -5,7 +5,8 @@ export type TransactionsChangedAction =
   | "create"
   | "update"
   | "delete"
-  | "bulk-delete";
+  | "bulk-delete"
+  | "restore";
 
 export interface TransactionsChangedDetail {
   action: TransactionsChangedAction;
