@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightLeft, Plus, Pencil, Trash2, Wallet as WalletIcon } from "lucide-react";
+import { ArrowRightLeft, History, Plus, Pencil, Trash2, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { IconBubble } from "@/components/common/IconBubble";
 import { WalletFormDialog } from "@/components/wallet/WalletFormDialog";
+import { WalletBalanceHistoryDialog } from "@/components/wallet/WalletBalanceHistoryDialog";
 import { WalletTransferDialog } from "@/components/wallet/WalletTransferDialog";
 import { walletService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
@@ -32,6 +33,7 @@ export default function WalletPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [editing, setEditing] = useState<Wallet | null>(null);
+  const [historyWallet, setHistoryWallet] = useState<Wallet | null>(null);
   const [deleting, setDeleting] = useState<Wallet | null>(null);
   const [delLoading, setDelLoading] = useState(false);
 
@@ -124,6 +126,14 @@ export default function WalletPage() {
                     <Button
                       size="icon-sm"
                       variant="ghost"
+                      onClick={() => setHistoryWallet(w)}
+                      title="Xem biến động số dư"
+                    >
+                      <History className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
                       onClick={() => { setEditing(w); setFormOpen(true); }}
                     >
                       <Pencil className="size-4" />
@@ -164,6 +174,12 @@ export default function WalletPage() {
         onClose={() => setTransferOpen(false)}
         wallets={wallets}
         onSaved={() => load({ silent: true })}
+      />
+
+      <WalletBalanceHistoryDialog
+        open={!!historyWallet}
+        onClose={() => setHistoryWallet(null)}
+        wallet={historyWallet}
       />
 
       <ConfirmDialog

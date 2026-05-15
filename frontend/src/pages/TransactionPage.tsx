@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { Plus, Pencil, Trash2, Filter, X, Search, ListOrdered, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Filter, X, Search, ListOrdered, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Bookmark, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,27 @@ import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Transaction, Wallet, Category, Pagination } from "@/types";
 
+type SavedTxFilter = {
+  id: string;
+  name: string;
+  filter: ListTxQuery;
+};
+
+const SAVED_FILTERS_KEY = "money-manager:saved-transaction-filters";
+
+const readSavedFilters = (): SavedTxFilter[] => {
+  try {
+    const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeSavedFilters = (items: SavedTxFilter[]) => {
+  localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(items));
+};
+
 export default function TransactionPage() {
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState<Transaction[]>([]);
@@ -27,6 +48,7 @@ export default function TransactionPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
+  const [savedFilters, setSavedFilters] = useState<SavedTxFilter[]>(() => readSavedFilters());
 
   // filters
   const [filter, setFilter] = useState<ListTxQuery>({
@@ -146,6 +168,38 @@ export default function TransactionPage() {
     setFilter({ page: 1, limit: 20, sortBy: "transactionDate", sortDir: "desc" });
   };
 
+  const saveCurrentFilter = () => {
+    const name = window.prompt("Nhập tên bộ lọc");
+    if (!name?.trim()) return;
+    const normalizedFilter: ListTxQuery = {
+      ...filter,
+      page: 1,
+      limit: filter.limit || 20,
+      sortBy: filter.sortBy || "transactionDate",
+      sortDir: filter.sortDir || "desc",
+    };
+    const next = [
+      { id: crypto.randomUUID(), name: name.trim(), filter: normalizedFilter },
+      ...savedFilters,
+    ].slice(0, 10);
+    writeSavedFilters(next);
+    setSavedFilters(next);
+    toast.success("Đã lưu bộ lọc");
+  };
+
+  const applySavedFilter = (id: string) => {
+    const item = savedFilters.find((saved) => saved.id === id);
+    if (!item) return;
+    setFilter({ ...item.filter, page: 1 });
+    toast.success(`Đã áp dụng bộ lọc "${item.name}"`);
+  };
+
+  const removeSavedFilter = (id: string) => {
+    const next = savedFilters.filter((saved) => saved.id !== id);
+    writeSavedFilters(next);
+    setSavedFilters(next);
+  };
+
   const activeFilterCount = [
     filter.type, filter.walletId, filter.categoryId, filter.fromDate, filter.toDate, filter.search,
   ].filter(Boolean).length;
@@ -195,6 +249,50 @@ export default function TransactionPage() {
       {showFilter && (
         <Card className="mb-4">
           <CardContent className="p-4">
+            <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div className="space-y-2">
+                <Label>Bộ lọc đã lưu</Label>
+                <Select value="" onValueChange={applySavedFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={savedFilters.length ? "Chọn bộ lọc nhanh" : "Chưa có bộ lọc đã lưu"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedFilters.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="outline" onClick={saveCurrentFilter} className="w-full lg:w-auto">
+                <Save className="size-4" /> Lưu bộ lọc
+              </Button>
+            </div>
+
+            {savedFilters.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {savedFilters.map((item) => (
+                  <div key={item.id} className="inline-flex overflow-hidden rounded-md border bg-secondary text-secondary-foreground">
+                    <button
+                      type="button"
+                      onClick={() => applySavedFilter(item.id)}
+                      className="inline-flex min-h-8 items-center gap-1 px-3 text-sm font-medium hover:bg-secondary/80"
+                    >
+                      <Bookmark className="size-3.5" />
+                      {item.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeSavedFilter(item.id)}
+                      className="min-h-8 border-l px-2 text-sm hover:bg-background/60"
+                      aria-label={`Xóa bộ lọc ${item.name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label>Loại</Label>
