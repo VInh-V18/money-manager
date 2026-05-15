@@ -1,3 +1,4 @@
+import { DataTypes } from "sequelize";
 import sequelize from "../config/database.js";
 
 import UserModel from "./User.js";
@@ -129,8 +130,53 @@ WalletTransfer.belongsTo(Wallet, { foreignKey: "toWalletId", as: "toWallet" });
 FixedExpense.hasMany(Transaction, { foreignKey: "fixedExpenseId" });
 Transaction.belongsTo(FixedExpense, { foreignKey: "fixedExpenseId" });
 
+const ensureColumn = async (queryInterface, tableName, columnName, definition) => {
+  let table;
+  try {
+    table = await queryInterface.describeTable(tableName);
+  } catch {
+    return;
+  }
+  if (!table[columnName]) {
+    await queryInterface.addColumn(tableName, columnName, definition);
+  }
+};
+
+const patchLegacySchemaBeforeAlter = async () => {
+  const qi = sequelize.getQueryInterface();
+  await ensureColumn(qi, "users", "role", {
+    type: DataTypes.ENUM("USER", "ADMIN", "SUPER_ADMIN", "PREMIUM_USER", "SUPPORT", "AUDITOR"),
+    allowNull: false,
+    defaultValue: "USER",
+  });
+  await ensureColumn(qi, "users", "failedLoginCount", {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  });
+  await ensureColumn(qi, "users", "lockedUntil", {
+    type: DataTypes.DATE,
+    allowNull: true,
+  });
+  await ensureColumn(qi, "users", "passwordChangedAt", {
+    type: DataTypes.DATE,
+    allowNull: true,
+  });
+  await ensureColumn(qi, "transactions", "idempotencyKey", {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  });
+  await ensureColumn(qi, "transactions", "checksum", {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+  });
+};
+
 // 3. ham dong bo bang
 export const syncModels = async ({ alter = false, force = false } = {}) => {
+  if (!force) {
+    await patchLegacySchemaBeforeAlter();
+  }
   await sequelize.sync({ alter, force });
   console.log("✓ Dong bo bang thanh cong");
 };
