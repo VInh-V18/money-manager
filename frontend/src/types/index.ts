@@ -102,6 +102,8 @@ export interface Wallet {
   icon: string;
   note: string | null;
   isActive: boolean;
+  lowBalanceThreshold: string | number | null;
+  lowBalanceLastNotifiedAt: string | null;
   excludeFromTotal: boolean;
   createdAt: string;
 }

@@ -170,6 +170,14 @@ const patchLegacySchemaBeforeAlter = async () => {
     type: DataTypes.STRING(64),
     allowNull: true,
   });
+  await ensureColumn(qi, "wallets", "lowBalanceThreshold", {
+    type: DataTypes.DECIMAL(18, 2),
+    allowNull: true,
+  });
+  await ensureColumn(qi, "wallets", "lowBalanceLastNotifiedAt", {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+  });
   await ensureColumn(qi, "notification_preferences", "remindLogEnabled", {
     type: DataTypes.BOOLEAN,
     allowNull: true,

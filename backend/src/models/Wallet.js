@@ -35,6 +35,8 @@ export default (sequelize) => {
       icon: { type: DataTypes.STRING(50), defaultValue: "wallet" },
       note: { type: DataTypes.STRING(500), allowNull: true },
       isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+      lowBalanceThreshold: { type: DataTypes.DECIMAL(18, 2), allowNull: true },
+      lowBalanceLastNotifiedAt: { type: DataTypes.DATEONLY, allowNull: true },
       // de loai khoi tong so du nhung khong xoa
       excludeFromTotal: { type: DataTypes.BOOLEAN, defaultValue: false },
     },

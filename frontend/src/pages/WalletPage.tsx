@@ -156,6 +156,11 @@ export default function WalletPage() {
                 {!w.isActive && (
                   <Badge variant="outline" className="mt-2 text-xs">Không hoạt động</Badge>
                 )}
+                {w.lowBalanceThreshold && Number(w.lowBalanceThreshold) > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Cảnh báo thấp dưới {formatCurrency(w.lowBalanceThreshold)}
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}

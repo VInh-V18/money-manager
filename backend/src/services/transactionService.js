@@ -13,6 +13,9 @@ import {
   notFoundError,
   forbiddenError,
 } from "../utils/errors.js";
+import { createNotification } from "./notificationService.js";
+
+const todayDateOnly = () => new Date().toISOString().slice(0, 10);
 
 /**
  * Ap dung tac dong cua giao dich len so du vi.
@@ -74,6 +77,28 @@ const applyToWallet = async (tx, sign, dbTx, reason = "transaction") => {
     referenceId: tx.id,
     dbTx,
   });
+  const threshold = wallet.lowBalanceThreshold;
+  const today = todayDateOnly();
+  if (
+    threshold !== null &&
+    threshold !== undefined &&
+    Number(threshold) > 0 &&
+    newBalance <= Number(threshold) &&
+    wallet.lowBalanceLastNotifiedAt !== today
+  ) {
+    await createNotification(
+      tx.userId,
+      {
+        type: "low_balance",
+        severity: "warning",
+        title: "So du vi thap",
+        message: `Vi "${wallet.name}" con ${newBalance}, thap hon nguong ${threshold}.`,
+        relatedEntity: { entityType: "wallet", entityId: wallet.id },
+      },
+      dbTx
+    );
+    await wallet.update({ lowBalanceLastNotifiedAt: today }, { transaction: dbTx });
+  }
   return newBalance;
 };
 
