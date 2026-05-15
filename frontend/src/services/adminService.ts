@@ -18,6 +18,11 @@ export const adminService = {
       .get("/admin/users", { params: { page, limit } })
       .then((r) => r.data.data as PaginatedResult<User>),
 
+  updateUserRole: (id: number, role: User["role"]) =>
+    api
+      .put(`/admin/users/${id}/role`, { role })
+      .then((r) => r.data.data.user as User),
+
   feedback: (page = 1, limit = 20) =>
     api
       .get("/admin/feedback", { params: { page, limit } })

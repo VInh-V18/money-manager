@@ -14,6 +14,7 @@ import type { Feedback, User } from "@/types";
 
 const ADMIN_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "SUPPORT", "AUDITOR"]);
 const FEEDBACK_STATUSES: Feedback["status"][] = ["reviewing", "resolved", "closed"];
+const USER_ROLES: User["role"][] = ["USER", "PREMIUM_USER", "SUPPORT", "AUDITOR", "ADMIN", "SUPER_ADMIN"];
 
 export default function AdminPage() {
   const user = useAuthStore((state) => state.user);
@@ -50,6 +51,16 @@ export default function AdminPage() {
       const updated = await adminService.updateFeedbackStatus(id, status);
       setFeedback((items) => items.map((item) => (item.id === id ? { ...item, ...updated } : item)));
       toast.success("Da cap nhat feedback");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
+  const updateUserRole = async (id: number, role: User["role"]) => {
+    try {
+      const updated = await adminService.updateUserRole(id, role);
+      setUsers((items) => items.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+      toast.success("Da cap nhat role");
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -96,8 +107,26 @@ export default function AdminPage() {
               <CardContent className="space-y-2">
                 {users.map((item) => (
                   <div key={item.id} className="rounded-lg border p-3">
-                    <p className="font-medium">{item.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{item.email} - {item.role}</p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-medium">{item.displayName}</p>
+                        <p className="text-xs text-muted-foreground">{item.email} - {item.role}</p>
+                      </div>
+                      <Select
+                        value={item.role}
+                        onValueChange={(role) => updateUserRole(item.id, role as User["role"])}
+                        disabled={item.id === user.id && item.role === "SUPER_ADMIN"}
+                      >
+                        <SelectTrigger className="w-full sm:w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {USER_ROLES.map((role) => (
+                            <SelectItem key={role} value={role}>{role}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ))}
               </CardContent>
