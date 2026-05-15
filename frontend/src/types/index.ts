@@ -167,6 +167,8 @@ export interface Transaction {
   transactionDate: string;
   transactionTime: string | null;
   receiptUrl: string | null;
+  idempotencyKey: string | null;
+  checksum: string | null;
   fixedExpenseId: number | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;

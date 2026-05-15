@@ -14,6 +14,13 @@ const subTypeEnum = z.enum([
   "other",
 ]);
 
+const idempotencyKeySchema = z
+  .string()
+  .trim()
+  .min(8, "Idempotency key qua ngan")
+  .max(100, "Idempotency key qua dai")
+  .regex(/^[a-zA-Z0-9:_-]+$/, "Idempotency key khong hop le");
+
 export const createTransactionSchema = z.object({
   walletId: z.coerce.number().int().positive(),
   categoryId: z.coerce.number().int().positive().optional().nullable(),
@@ -29,6 +36,7 @@ export const createTransactionSchema = z.object({
     .optional()
     .nullable(),
   receiptUrl: z.string().max(1000).optional().nullable(),
+  idempotencyKey: idempotencyKeySchema.optional().nullable(),
   metadata: z.record(z.string(), z.any()).optional().nullable(),
   // chi tieu hot tuc thoi co the bo qua canh bao am tien
   allowNegative: z.coerce.boolean().default(false),

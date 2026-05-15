@@ -37,6 +37,8 @@ export default (sequelize) => {
       transactionDate: { type: DataTypes.DATEONLY, allowNull: false },
       transactionTime: { type: DataTypes.TIME, allowNull: true },
       receiptUrl: { type: DataTypes.TEXT, allowNull: true },
+      idempotencyKey: { type: DataTypes.STRING(100), allowNull: true },
+      checksum: { type: DataTypes.STRING(64), allowNull: true },
       // de track giao dich tao tu chi co dinh -> de undo neu can
       fixedExpenseId: { type: DataTypes.INTEGER, allowNull: true },
       // metadata phu cho thu nhap theo gio/ngay
@@ -55,6 +57,8 @@ export default (sequelize) => {
         { fields: ["userId", "walletId", "transactionDate"] },
         { fields: ["userId", "categoryId", "transactionDate"] },
         { fields: ["userId", "amount"] },
+        { unique: true, fields: ["userId", "idempotencyKey"] },
+        { fields: ["userId", "checksum", "transactionDate"] },
         { fields: ["walletId"] },
         { fields: ["categoryId"] },
         { fields: ["type"] },

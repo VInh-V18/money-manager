@@ -10,6 +10,13 @@ const emptyPage: PaginatedResult<Transaction> = {
 const asTransactions = (value: unknown): Transaction[] =>
   Array.isArray(value) ? (value as Transaction[]) : [];
 
+const makeIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 export interface ListTxQuery {
   page?: number;
   limit?: number;
@@ -63,8 +70,12 @@ export const transactionService = {
     transactionDate: string;
     transactionTime?: string;
     allowNegative?: boolean;
+    idempotencyKey?: string;
   }) =>
-    api.post("/transactions", data).then((r) => {
+    api.post("/transactions", {
+      ...data,
+      idempotencyKey: data.idempotencyKey || makeIdempotencyKey(),
+    }).then((r) => {
       const transaction = r.data.data.transaction as Transaction;
       notifyTransactionsChanged({ action: "create", ids: [transaction.id] });
       return transaction;

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Op } from "sequelize";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok, created } from "../utils/response.js";
@@ -14,6 +15,42 @@ import {
   deleteTransactionWithBalance,
 } from "../services/transactionService.js";
 import { writeActivityLog } from "../services/activityLogService.js";
+
+const transactionInclude = [
+  { model: Wallet },
+  { model: Category },
+];
+
+const getIdempotencyKey = (req, bodyKey) => {
+  const headerKey = req.get("Idempotency-Key") || req.get("x-idempotency-key");
+  const value = bodyKey || headerKey;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
+const assertValidIdempotencyKey = (key) => {
+  if (!key) return;
+  if (key.length < 8 || key.length > 100 || !/^[a-zA-Z0-9:_-]+$/.test(key)) {
+    throw badRequest("Idempotency key khong hop le");
+  }
+};
+
+const buildTransactionChecksum = (userId, data) => {
+  const payload = {
+    userId,
+    walletId: Number(data.walletId),
+    categoryId: data.categoryId ? Number(data.categoryId) : null,
+    type: data.type,
+    subType: data.subType || "regular",
+    amount: Number(data.amount).toFixed(2),
+    description: data.description || "",
+    note: data.note || "",
+    transactionDate: data.transactionDate,
+    transactionTime: data.transactionTime || null,
+    receiptUrl: data.receiptUrl || null,
+    metadata: data.metadata || null,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+};
 
 // ===== Liet ke voi filter + pagination =====
 export const listTransactions = asyncHandler(async (req, res) => {
@@ -127,7 +164,26 @@ export const getTransaction = asyncHandler(async (req, res) => {
 
 // ===== Tao giao dich (logic chinh) =====
 export const createTransaction = asyncHandler(async (req, res) => {
-  const { allowNegative, ...data } = req.body;
+  const { allowNegative, idempotencyKey: bodyIdempotencyKey, ...data } = req.body;
+  const idempotencyKey = getIdempotencyKey(req, bodyIdempotencyKey);
+  assertValidIdempotencyKey(idempotencyKey);
+
+  if (idempotencyKey) {
+    const existing = await Transaction.findOne({
+      where: { userId: req.user.id, idempotencyKey },
+      include: transactionInclude,
+    });
+    if (existing) {
+      return ok(
+        res,
+        { transaction: existing, idempotent: true },
+        "Giao dich da ton tai"
+      );
+    }
+  }
+
+  data.idempotencyKey = idempotencyKey;
+  data.checksum = buildTransactionChecksum(req.user.id, data);
 
   // validate categoryId neu co
   if (data.categoryId) {
@@ -160,7 +216,7 @@ export const createTransaction = asyncHandler(async (req, res) => {
 
   // load lai voi association de tra ve frontend
   const full = await Transaction.findByPk(tx.id, {
-    include: [{ model: Wallet }, { model: Category }],
+    include: transactionInclude,
   });
   return created(res, { transaction: full }, "Tao giao dich thanh cong");
 });
