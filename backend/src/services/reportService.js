@@ -271,6 +271,30 @@ export const getDailyStats = async (userId, fromDate, toDate) => {
   return result;
 };
 
+export const getWeeklyStats = async (userId, fromDate, toDate) => {
+  const daily = await getDailyStats(userId, fromDate, toDate);
+  const weeks = new Map();
+  for (const item of daily) {
+    const date = new Date(item.date);
+    const weekStart = addDays(date, -date.getDay() + 1);
+    const key = formatDate(weekStart);
+    if (!weeks.has(key)) {
+      weeks.set(key, {
+        weekStart: key,
+        weekEnd: formatDate(addDays(weekStart, 6)),
+        income: 0,
+        expense: 0,
+        net: 0,
+      });
+    }
+    const row = weeks.get(key);
+    row.income += item.income;
+    row.expense += item.expense;
+    row.net = row.income - row.expense;
+  }
+  return Array.from(weeks.values());
+};
+
 /**
  * So sanh thang nay vs thang truoc
  */

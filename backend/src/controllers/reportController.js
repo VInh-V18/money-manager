@@ -5,6 +5,7 @@ import {
   getOverview,
   getReportByRange,
   getDailyStats,
+  getWeeklyStats,
   getMonthlyComparison,
   getForecast,
 } from "../services/reportService.js";
@@ -51,6 +52,12 @@ export const rangeReport = asyncHandler(async (req, res) => {
 export const dailyStats = asyncHandler(async (req, res) => {
   const { from, to } = resolveRange(req);
   const items = await getDailyStats(req.user.id, from, to);
+  return ok(res, { items, range: { from, to } });
+});
+
+export const weeklyStats = asyncHandler(async (req, res) => {
+  const { from, to } = resolveRange(req);
+  const items = await getWeeklyStats(req.user.id, from, to);
   return ok(res, { items, range: { from, to } });
 });
 

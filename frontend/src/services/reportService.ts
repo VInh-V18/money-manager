@@ -1,8 +1,11 @@
 import api from "@/lib/axios";
-import type { OverviewData, RangeReport, DailyStat } from "@/types";
+import type { OverviewData, RangeReport, DailyStat, WeeklyStat } from "@/types";
 
 const asDailyStats = (value: unknown): DailyStat[] =>
   Array.isArray(value) ? (value as DailyStat[]) : [];
+
+const asWeeklyStats = (value: unknown): WeeklyStat[] =>
+  Array.isArray(value) ? (value as WeeklyStat[]) : [];
 
 export const reportService = {
   overview: () =>
@@ -20,6 +23,17 @@ export const reportService = {
         const data = r.data?.data;
         return {
           items: asDailyStats(data?.items),
+          range: data?.range || { from: fromDate, to: toDate },
+        };
+      }),
+
+  weeklyStats: (fromDate: string, toDate: string) =>
+    api
+      .get("/reports/weekly-stats", { params: { fromDate, toDate } })
+      .then((r) => {
+        const data = r.data?.data;
+        return {
+          items: asWeeklyStats(data?.items),
           range: data?.range || { from: fromDate, to: toDate },
         };
       }),

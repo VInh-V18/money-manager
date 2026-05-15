@@ -386,3 +386,11 @@ export interface DailyStat {
   income: number;
   expense: number;
 }
+
+export interface WeeklyStat {
+  weekStart: string;
+  weekEnd: string;
+  income: number;
+  expense: number;
+  net: number;
+}

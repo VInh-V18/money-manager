@@ -24,7 +24,7 @@ import { reportService, downloadBlob } from "@/services/reportService";
 import { getErrorMessage } from "@/lib/axios";
 import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency, toISODate } from "@/lib/utils";
-import type { RangeReport, DailyStat } from "@/types";
+import type { RangeReport, DailyStat, WeeklyStat } from "@/types";
 
 const PRESETS = [
   { label: "Hôm nay", days: 0 },
@@ -47,6 +47,7 @@ export default function ReportPage() {
   });
   const [report, setReport] = useState<RangeReport | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "csv" | "pdf" | "backup" | "restore" | "csv-import" | null>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -55,12 +56,14 @@ export default function ReportPage() {
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const [r, d] = await Promise.all([
+      const [r, d, w] = await Promise.all([
         reportService.range(range.from, range.to),
         reportService.dailyStats(range.from, range.to),
+        reportService.weeklyStats(range.from, range.to),
       ]);
       setReport(r);
       setDailyStats(d.items);
+      setWeeklyStats(w.items);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -338,6 +341,44 @@ export default function ReportPage() {
                     <Legend />
                     <Bar dataKey="income" name="Thu" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expense" name="Chi" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Dòng tiền theo tuần</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {weeklyStats.length === 0 ? (
+                <EmptyState title="Chưa có dữ liệu tuần" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={weeklyStats}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="weekStart" tickFormatter={(d) => d.slice(5)} fontSize={11} />
+                    <YAxis
+                      tickFormatter={(v) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(0)}tr` : v >= 1000 ? `${v / 1000}k` : v)}
+                      fontSize={11}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 8,
+                        backgroundColor: "hsl(var(--popover))",
+                        border: "1px solid hsl(var(--border))",
+                      }}
+                      labelFormatter={(_, payload) => {
+                        const item = payload?.[0]?.payload as WeeklyStat | undefined;
+                        return item ? `${item.weekStart} - ${item.weekEnd}` : "";
+                      }}
+                      formatter={(v: number) => formatCurrency(v)}
+                    />
+                    <Legend />
+                    <Bar dataKey="income" name="Thu" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expense" name="Chi" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="net" name="Còn lại" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

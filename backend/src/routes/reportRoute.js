@@ -9,6 +9,7 @@ router.use(protectedRoute);
 router.get("/overview", ctrl.overview);
 router.get("/range", ctrl.rangeReport);
 router.get("/daily-stats", ctrl.dailyStats);
+router.get("/weekly-stats", ctrl.weeklyStats);
 router.get("/compare-months", ctrl.compareMonths);
 router.get("/forecast", ctrl.forecast);
 router.get("/preset-ranges", ctrl.presetRanges);
