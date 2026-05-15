@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -85,7 +85,7 @@ export default function SettingsPage() {
     }
   }, [user, profileForm]);
 
-  const loadSecurity = async () => {
+  const loadSecurity = useCallback(async () => {
     try {
       setSecurityLoading(true);
       const [sessionItems, history, activities] = await Promise.all([
@@ -101,11 +101,11 @@ export default function SettingsPage() {
     } finally {
       setSecurityLoading(false);
     }
-  };
+  }, [loginStatusFilter]);
 
   useEffect(() => {
     if (user) void loadSecurity();
-  }, [user, loginStatusFilter]);
+  }, [user, loadSecurity]);
 
   useEffect(() => {
     if (!user) return;
