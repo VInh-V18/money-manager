@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Money Manager">
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <path d="M142 176c0-33 27-60 60-60h108c33 0 60 27 60 60v160c0 33-27 60-60 60H202c-33 0-60-27-60-60V176z" fill="#ffffff"/>
+  <path d="M190 210h132M190 256h132M190 302h72" stroke="#2563eb" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="320" cy="316" r="38" fill="#16a34a"/>
+  <path d="M306 316h28M320 302v28" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
+</svg>
