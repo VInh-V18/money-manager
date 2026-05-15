@@ -10,9 +10,11 @@ import {
 } from "../services/reportService.js";
 import {
   exportTransactionsToExcel,
+  exportTransactionsToCsv,
   exportReportToPDF,
   exportUserBackupJson,
   restoreUserBackupJson,
+  importTransactionsFromCsv,
 } from "../services/exportService.js";
 import {
   formatDate,
@@ -77,6 +79,18 @@ export const exportExcel = asyncHandler(async (req, res) => {
   res.send(Buffer.from(buffer));
 });
 
+// === Export CSV ===
+export const exportCsv = asyncHandler(async (req, res) => {
+  const { from, to } = resolveRange(req);
+  const csv = await exportTransactionsToCsv(req.user.id, from, to);
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="giao-dich-${from}_${to}.csv"`
+  );
+  res.send(`\uFEFF${csv}`);
+});
+
 // === Export PDF ===
 export const exportPdf = asyncHandler(async (req, res) => {
   const { from, to } = resolveRange(req);
@@ -115,6 +129,15 @@ export const restoreBackupJson = asyncHandler(async (req, res) => {
   }
   const result = await restoreUserBackupJson(req.user.id, backup);
   return ok(res, result, "Restore backup thanh cong");
+});
+
+// === Import transaction CSV ===
+export const importTransactionsCsv = asyncHandler(async (req, res) => {
+  if (!req.file?.buffer) {
+    throw badRequest("Vui long chon file CSV");
+  }
+  const result = await importTransactionsFromCsv(req.user.id, req.file.buffer.toString("utf8"));
+  return ok(res, result, `Da import ${result.imported} giao dich`);
 });
 
 // === Helper preset ranges (cho quick filter) ===

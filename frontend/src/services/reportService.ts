@@ -37,6 +37,12 @@ export const reportService = {
       responseType: "blob",
     }),
 
+  exportCsv: (fromDate?: string, toDate?: string) =>
+    api.get("/reports/export/csv", {
+      params: { fromDate, toDate },
+      responseType: "blob",
+    }),
+
   exportPdf: (fromDate?: string, toDate?: string) =>
     api.get("/reports/export/pdf", {
       params: { fromDate, toDate },
@@ -54,6 +60,14 @@ export const reportService = {
     return api
       .post("/reports/import/backup-json", fd, { headers: { "Content-Type": "multipart/form-data" } })
       .then((r) => r.data.data as Record<string, number>);
+  },
+
+  importTransactionsCsv: (file: File) => {
+    const fd = new FormData();
+    fd.append("csv", file);
+    return api
+      .post("/reports/import/transactions-csv", fd, { headers: { "Content-Type": "multipart/form-data" } })
+      .then((r) => r.data.data as { imported: number; failed: number; errors: Array<{ line: number; reason: string }> });
   },
 };
 

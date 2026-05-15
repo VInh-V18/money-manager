@@ -19,9 +19,74 @@ import {
 } from "../models/index.js";
 import { badRequest } from "../utils/errors.js";
 import { getReportByRange } from "./reportService.js";
+import { createTransactionWithBalance } from "./transactionService.js";
 
 const formatVND = (n) =>
   new Intl.NumberFormat("vi-VN").format(Math.round(Number(n) || 0)) + " d";
+
+const csvEscape = (value) => {
+  const text = value === null || value === undefined ? "" : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
+const parseCsvLine = (line) => {
+  const cells = [];
+  let current = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (quoted && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === "," && !quoted) {
+      cells.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current);
+  return cells.map((cell) => cell.trim());
+};
+
+const parseCsv = (text) => {
+  const lines = String(text || "")
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
+  return lines.slice(1).map((line, index) => {
+    const cells = parseCsvLine(line);
+    return headers.reduce(
+      (row, header, col) => {
+        row[header] = cells[col] ?? "";
+        return row;
+      },
+      { __line: index + 2 }
+    );
+  });
+};
+
+const parseTransactionType = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["income", "thu", "thu nhap", "thu nhập"].includes(normalized)) return "income";
+  if (["expense", "chi", "chi tieu", "chi tiêu"].includes(normalized)) return "expense";
+  return null;
+};
+
+const parseAmount = (value) => {
+  const raw = String(value || "").replace(/[^\d,.-]/g, "");
+  const normalized = raw.includes(",")
+    ? raw.replace(/\./g, "").replace(",", ".")
+    : raw.replace(/,/g, "");
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+};
 
 /**
  * Xuat Excel: 1 sheet danh sach giao dich + 1 sheet tong hop
@@ -95,6 +160,113 @@ export const exportTransactionsToExcel = async (userId, fromDate, toDate) => {
   ]);
 
   return wb.xlsx.writeBuffer();
+};
+
+export const exportTransactionsToCsv = async (userId, fromDate, toDate) => {
+  const txs = await Transaction.findAll({
+    where: {
+      userId,
+      transactionDate: { [Op.between]: [fromDate, toDate] },
+    },
+    include: [
+      { model: Wallet, attributes: ["id", "name"] },
+      { model: Category, attributes: ["id", "name", "type"] },
+    ],
+    order: [
+      ["transactionDate", "DESC"],
+      ["id", "DESC"],
+    ],
+  });
+
+  const headers = [
+    "transactionDate",
+    "transactionTime",
+    "type",
+    "amount",
+    "wallet",
+    "category",
+    "description",
+    "note",
+  ];
+  const rows = txs.map((tx) => [
+    tx.transactionDate,
+    tx.transactionTime || "",
+    tx.type,
+    Number(tx.amount),
+    tx.Wallet?.name || "",
+    tx.Category?.name || "",
+    tx.description || "",
+    tx.note || "",
+  ]);
+  return [headers, ...rows]
+    .map((row) => row.map(csvEscape).join(","))
+    .join("\r\n");
+};
+
+export const importTransactionsFromCsv = async (userId, text) => {
+  const rows = parseCsv(text);
+  if (rows.length === 0) throw badRequest("File CSV khong co du lieu");
+  if (rows.length > 1000) throw badRequest("Chi duoc import toi da 1000 dong moi lan");
+
+  const [wallets, categories] = await Promise.all([
+    Wallet.findAll({ where: { userId, isActive: true } }),
+    Category.findAll({ where: { userId } }),
+  ]);
+  const walletByName = new Map(wallets.map((w) => [String(w.name).toLowerCase(), w]));
+  const categoryByName = new Map(categories.map((c) => [`${c.type}:${String(c.name).toLowerCase()}`, c]));
+
+  const errors = [];
+  let imported = 0;
+
+  for (const row of rows) {
+    const type = parseTransactionType(row.type || row.loai);
+    const amount = parseAmount(row.amount || row["so tien"] || row["số tiền"]);
+    const transactionDate = row.transactiondate || row.date || row.ngay || row["ngày"];
+    const walletName = row.wallet || row.vi || row["ví"];
+    const categoryName = row.category || row["danh muc"] || row["danh mục"];
+    const wallet = walletByName.get(String(walletName || "").trim().toLowerCase());
+    const category = categoryName
+      ? categoryByName.get(`${type}:${String(categoryName).trim().toLowerCase()}`)
+      : null;
+
+    if (!type || !amount || !transactionDate || !wallet) {
+      errors.push({
+        line: row.__line,
+        reason: "Thieu type/amount/date/wallet hoac gia tri khong hop le",
+      });
+      continue;
+    }
+    if (categoryName && !category) {
+      errors.push({ line: row.__line, reason: "Danh muc khong ton tai hoac sai loai" });
+      continue;
+    }
+
+    try {
+      await sequelize.transaction((dbTx) =>
+        createTransactionWithBalance(
+          userId,
+          {
+            walletId: wallet.id,
+            categoryId: category?.id || null,
+            type,
+            subType: "regular",
+            amount,
+            description: row.description || row["mo ta"] || row["mô tả"] || "",
+            note: row.note || row["ghi chu"] || row["ghi chú"] || "",
+            transactionDate,
+            transactionTime: row.transactiontime || row.time || null,
+          },
+          dbTx,
+          { allowNegative: true }
+        )
+      );
+      imported++;
+    } catch (err) {
+      errors.push({ line: row.__line, reason: err.message || "Khong import duoc" });
+    }
+  }
+
+  return { imported, failed: errors.length, errors: errors.slice(0, 50) };
 };
 
 /**

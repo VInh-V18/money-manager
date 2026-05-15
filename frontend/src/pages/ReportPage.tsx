@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { DatabaseBackup, FileSpreadsheet, FileText, FileUp } from "lucide-react";
+import { DatabaseBackup, FileDown, FileSpreadsheet, FileText, FileUp } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -40,8 +40,9 @@ export default function ReportPage() {
   const [report, setReport] = useState<RangeReport | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState<"excel" | "pdf" | "backup" | "restore" | null>(null);
+  const [exporting, setExporting] = useState<"excel" | "csv" | "pdf" | "backup" | "restore" | "csv-import" | null>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
@@ -78,14 +79,19 @@ export default function ReportPage() {
     }
   };
 
-  const handleExport = async (kind: "excel" | "pdf") => {
+  const handleExport = async (kind: "excel" | "csv" | "pdf") => {
     setExporting(kind);
     try {
-      const fn = kind === "excel" ? reportService.exportExcel : reportService.exportPdf;
-      const ext = kind === "excel" ? "xlsx" : "pdf";
+      const fn =
+        kind === "excel"
+          ? reportService.exportExcel
+          : kind === "csv"
+            ? reportService.exportCsv
+            : reportService.exportPdf;
+      const ext = kind === "excel" ? "xlsx" : kind;
       const res = await fn(range.from, range.to);
       downloadBlob(new Blob([res.data]), `bao-cao-${range.from}_${range.to}.${ext}`);
-      toast.success(`Đã tải ${kind === "excel" ? "Excel" : "PDF"}`);
+      toast.success(`Đã tải ${kind.toUpperCase()}`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -126,6 +132,21 @@ export default function ReportPage() {
     }
   };
 
+  const handleCsvFile = async (file?: File) => {
+    if (!file) return;
+    setExporting("csv-import");
+    try {
+      const result = await reportService.importTransactionsCsv(file);
+      toast.success(`Đã import ${result.imported} giao dịch, lỗi ${result.failed}`);
+      void load({ silent: true });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExporting(null);
+      if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  };
+
   // top 8 expense categories cho pie
   const expensePie = (report?.byCategory || [])
     .filter((c) => c.type === "expense")
@@ -154,9 +175,15 @@ export default function ReportPage() {
               <Label>Đến ngày</Label>
               <Input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => handleExport("excel")} loading={exporting === "excel"}>
                 <FileSpreadsheet className="size-4" /> Excel
+              </Button>
+              <Button variant="outline" onClick={() => handleExport("csv")} loading={exporting === "csv"}>
+                <FileDown className="size-4" /> CSV
+              </Button>
+              <Button variant="outline" onClick={() => csvInputRef.current?.click()} loading={exporting === "csv-import"}>
+                <FileUp className="size-4" /> Import CSV
               </Button>
               <Button variant="outline" onClick={() => handleExport("pdf")} loading={exporting === "pdf"}>
                 <FileText className="size-4" /> PDF
@@ -167,6 +194,13 @@ export default function ReportPage() {
               <Button variant="outline" onClick={() => restoreInputRef.current?.click()} loading={exporting === "restore"}>
                 <FileUp className="size-4" /> Restore
               </Button>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept="text/csv,.csv"
+                className="hidden"
+                onChange={(event) => void handleCsvFile(event.target.files?.[0])}
+              />
               <input
                 ref={restoreInputRef}
                 type="file"

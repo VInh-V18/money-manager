@@ -46,3 +46,14 @@ export const uploadJson = multer({
   },
   limits: { fileSize: env.MAX_FILE_SIZE },
 });
+
+export const uploadCsv = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (!/\.csv$/i.test(file.originalname) && !/csv/i.test(file.mimetype || "")) {
+      return cb(new Error("Chi cho phep upload file CSV"), false);
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: env.MAX_FILE_SIZE },
+});
