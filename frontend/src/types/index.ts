@@ -273,6 +273,7 @@ export interface Debt {
   dueDate: string | null;
   status: "active" | "paid" | "overdue";
   note: string | null;
+  lastDueNotifiedDate: string | null;
   remaining?: number;
 }
 

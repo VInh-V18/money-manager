@@ -78,7 +78,38 @@ const debtOverdueJob = async () => {
   console.log("[CRON] Chay job: cap nhat no qua han...");
   try {
     const todayStr = formatDate(today());
-    // chuyen status sang overdue
+    const notifyDebt = async (d, { overdue = false } = {}) => {
+      if (d.lastDueNotifiedDate === todayStr) return false;
+      await createNotification(d.userId, {
+        type: "debt_due",
+        severity: overdue ? "danger" : "warning",
+        title: overdue ? "Khoan no qua han" : "Khoan no den han",
+        message:
+          d.type === "owed_by_me"
+            ? `Ban can tra ${d.personName} ${d.amount}`
+            : `${d.personName} can tra ban ${d.amount}`,
+        relatedEntity: { entityType: "debt", entityId: d.id },
+      });
+      await d.update({ lastDueNotifiedDate: todayStr });
+      return true;
+    };
+
+    const dueToday = await Debt.findAll({
+      where: {
+        status: "active",
+        dueDate: todayStr,
+        [Op.or]: [
+          { lastDueNotifiedDate: { [Op.ne]: todayStr } },
+          { lastDueNotifiedDate: { [Op.is]: null } },
+        ],
+      },
+    });
+
+    let notified = 0;
+    for (const d of dueToday) {
+      if (await notifyDebt(d)) notified++;
+    }
+
     const [updated] = await Debt.update(
       { status: "overdue" },
       {
@@ -89,23 +120,20 @@ const debtOverdueJob = async () => {
       }
     );
 
-    // tao notif cho cac khoan vua qua han hom nay
-    const newlyOverdue = await Debt.findAll({
-      where: { status: "overdue", dueDate: todayStr },
+    const overdueDebts = await Debt.findAll({
+      where: {
+        status: "overdue",
+        dueDate: { [Op.lt]: todayStr, [Op.ne]: null },
+        [Op.or]: [
+          { lastDueNotifiedDate: { [Op.ne]: todayStr } },
+          { lastDueNotifiedDate: { [Op.is]: null } },
+        ],
+      },
     });
-    for (const d of newlyOverdue) {
-      await createNotification(d.userId, {
-        type: "debt_due",
-        severity: "warning",
-        title: "Khoan no qua han",
-        message:
-          d.type === "owed_by_me"
-            ? `Ban can tra ${d.personName} ${d.amount}`
-            : `${d.personName} can tra ban ${d.amount}`,
-        relatedEntity: { entityType: "debt", entityId: d.id },
-      });
+    for (const d of overdueDebts) {
+      if (await notifyDebt(d, { overdue: true })) notified++;
     }
-    console.log(`[CRON] Done: ${updated} no chuyen overdue`);
+    console.log(`[CRON] Done: ${updated} no chuyen overdue, ${notified} thong bao no`);
   } catch (err) {
     console.error("[CRON] Loi job no:", err.message);
   }

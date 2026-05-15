@@ -178,6 +178,10 @@ const patchLegacySchemaBeforeAlter = async () => {
     type: DataTypes.DATEONLY,
     allowNull: true,
   });
+  await ensureColumn(qi, "debts", "lastDueNotifiedDate", {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+  });
   await ensureColumn(qi, "notification_preferences", "remindLogEnabled", {
     type: DataTypes.BOOLEAN,
     allowNull: true,

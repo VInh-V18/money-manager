@@ -28,6 +28,7 @@ export default (sequelize) => {
         defaultValue: "active",
       },
       note: { type: DataTypes.STRING(500), allowNull: true },
+      lastDueNotifiedDate: { type: DataTypes.DATEONLY, allowNull: true },
     },
     {
       tableName: "debts",
