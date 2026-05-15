@@ -7,6 +7,7 @@
  * TAT CA cac ham deu nhan tham so transaction (DB transaction Sequelize)
  * de dam bao tinh atomic. Neu loi giua chung -> rollback toan bo.
  */
+import { Op } from "sequelize";
 import { Transaction, Wallet, WalletBalanceHistory } from "../models/index.js";
 import {
   badRequest,
@@ -16,6 +17,11 @@ import {
 import { createNotification } from "./notificationService.js";
 
 const todayDateOnly = () => new Date().toISOString().slice(0, 10);
+const daysAgoDateOnly = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+};
 
 /**
  * Ap dung tac dong cua giao dich len so du vi.
@@ -116,6 +122,40 @@ const checkBalance = async (walletId, amount, type, allowNegative, dbTx) => {
   }
 };
 
+const detectAbnormalExpense = async (tx, dbTx) => {
+  if (tx.type !== "expense") return;
+  const amount = Number(tx.amount);
+  const where = {
+    id: { [Op.ne]: tx.id },
+    userId: tx.userId,
+    type: "expense",
+    transactionDate: { [Op.gte]: daysAgoDateOnly(90) },
+  };
+  if (tx.categoryId) where.categoryId = tx.categoryId;
+
+  const [count, total] = await Promise.all([
+    Transaction.count({ where, transaction: dbTx }),
+    Transaction.sum("amount", { where, transaction: dbTx }),
+  ]);
+  if (count < 5) return;
+
+  const average = Number(total || 0) / count;
+  const isAbnormal = average > 0 && amount >= Math.max(average * 2.5, 100000);
+  if (!isAbnormal) return;
+
+  await createNotification(
+    tx.userId,
+    {
+      type: "abnormal_spending",
+      severity: "warning",
+      title: "Chi tieu bat thuong",
+      message: `Khoan chi ${amount} cao hon muc trung binh ${Math.round(average)} trong 90 ngay gan day.`,
+      relatedEntity: { entityType: "transaction", entityId: tx.id },
+    },
+    dbTx
+  );
+};
+
 /**
  * Tao giao dich + cap nhat so du vi (atomic)
  */
@@ -147,6 +187,7 @@ export const createTransactionWithBalance = async (
 
   // 4. cap nhat so du
   await applyToWallet(tx, +1, dbTx, "transaction_create");
+  await detectAbnormalExpense(tx, dbTx);
 
   return tx;
 };
