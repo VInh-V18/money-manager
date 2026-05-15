@@ -3,7 +3,7 @@ import { Op } from "sequelize";
 import { generateDueFixedExpenses } from "../services/fixedExpenseService.js";
 import { calculateBudgetsSummary } from "../services/budgetService.js";
 import { createNotification } from "../services/notificationService.js";
-import { Budget, Debt, Otp, RefreshToken, User } from "../models/index.js";
+import { Budget, Debt, NotificationPreference, Otp, RefreshToken, Transaction, User } from "../models/index.js";
 import { formatDate, today } from "../utils/date.js";
 
 /**
@@ -141,6 +141,61 @@ const securityCleanupJob = async () => {
   }
 };
 
+const currentVietnamTime = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (type) => parts.find((part) => part.type === type)?.value || "";
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    time: `${get("hour")}:00`,
+  };
+};
+
+const remindLogJob = async () => {
+  console.log("[CRON] Chay job: nhac nhap giao dich...");
+  try {
+    const now = currentVietnamTime();
+    const prefs = await NotificationPreference.findAll({
+      where: {
+        remindLogEnabled: true,
+        remindLogTime: now.time,
+        [Op.or]: [
+          { lastRemindLogDate: { [Op.ne]: now.date } },
+          { lastRemindLogDate: { [Op.is]: null } },
+        ],
+      },
+      attributes: ["id", "userId", "lastRemindLogDate"],
+    });
+
+    let total = 0;
+    for (const pref of prefs) {
+      const count = await Transaction.count({
+        where: { userId: pref.userId, transactionDate: now.date },
+      });
+      if (count === 0) {
+        await createNotification(pref.userId, {
+          type: "remind_log",
+          severity: "info",
+          title: "Nhac nhap giao dich",
+          message: "Hom nay ban chua nhap giao dich nao. Hay cap nhat de bao cao chinh xac hon.",
+        });
+        total++;
+      }
+      await pref.update({ lastRemindLogDate: now.date });
+    }
+    console.log(`[CRON] Done: tao ${total} nhac nhap giao dich`);
+  } catch (err) {
+    console.error("[CRON] Loi job nhac nhap giao dich:", err.message);
+  }
+};
+
 /**
  * Khoi tao tat ca cron job
  */
@@ -173,8 +228,14 @@ export const initCronJobs = () => {
     { timezone: "Asia/Ho_Chi_Minh" }
   );
 
-  console.log("✓ Cron jobs da khoi tao (4 jobs)");
+  cron.schedule(
+    "0 * * * *",
+    remindLogJob,
+    { timezone: "Asia/Ho_Chi_Minh" }
+  );
+
+  console.log("✓ Cron jobs da khoi tao (5 jobs)");
 };
 
 // Export tung job rieng de co the chay tay khi can
-export { fixedExpenseJob, budgetWarningJob, debtOverdueJob, securityCleanupJob };
+export { fixedExpenseJob, budgetWarningJob, debtOverdueJob, securityCleanupJob, remindLogJob };

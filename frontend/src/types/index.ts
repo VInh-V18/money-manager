@@ -324,6 +324,9 @@ export interface NotificationPreference {
   userId: number;
   inAppEnabled: boolean;
   emailEnabled: boolean;
+  remindLogEnabled: boolean;
+  remindLogTime: string;
+  lastRemindLogDate: string | null;
   typePreferences: Record<NotificationType, boolean>;
   createdAt: string;
   updatedAt: string;

@@ -170,6 +170,20 @@ const patchLegacySchemaBeforeAlter = async () => {
     type: DataTypes.STRING(64),
     allowNull: true,
   });
+  await ensureColumn(qi, "notification_preferences", "remindLogEnabled", {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    defaultValue: true,
+  });
+  await ensureColumn(qi, "notification_preferences", "remindLogTime", {
+    type: DataTypes.STRING(5),
+    allowNull: false,
+    defaultValue: "20:00",
+  });
+  await ensureColumn(qi, "notification_preferences", "lastRemindLogDate", {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+  });
 };
 
 // 3. ham dong bo bang

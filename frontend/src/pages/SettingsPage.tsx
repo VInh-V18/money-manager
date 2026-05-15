@@ -195,6 +195,8 @@ export default function SettingsPage() {
       const saved = await notificationService.updatePreferences({
         inAppEnabled: next.inAppEnabled,
         emailEnabled: next.emailEnabled,
+        remindLogEnabled: next.remindLogEnabled,
+        remindLogTime: next.remindLogTime,
         typePreferences: next.typePreferences,
       });
       setNotificationPrefs(saved);
@@ -377,6 +379,31 @@ export default function SettingsPage() {
                     onChange={(event) => updateNotificationPrefs({ emailEnabled: event.target.checked })}
                   />
                 </label>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+                <label className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <span>
+                    <span className="block text-sm font-medium">Nhắc nhập giao dịch mỗi ngày</span>
+                    <span className="text-xs text-muted-foreground">Chỉ nhắc nếu hôm đó chưa có giao dịch nào</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={notificationPrefs.remindLogEnabled}
+                    disabled={notificationSaving}
+                    onChange={(event) => updateNotificationPrefs({ remindLogEnabled: event.target.checked })}
+                  />
+                </label>
+                <div className="space-y-2 rounded-lg border p-3">
+                  <Label>Giờ nhắc</Label>
+                  <Input
+                    type="time"
+                    value={notificationPrefs.remindLogTime || "20:00"}
+                    disabled={notificationSaving || !notificationPrefs.remindLogEnabled}
+                    onChange={(event) => updateNotificationPrefs({ remindLogTime: event.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">

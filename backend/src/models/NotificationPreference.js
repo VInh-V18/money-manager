@@ -27,6 +27,9 @@ export default (sequelize) => {
       userId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
       inAppEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
       emailEnabled: { type: DataTypes.BOOLEAN, defaultValue: false },
+      remindLogEnabled: { type: DataTypes.BOOLEAN, defaultValue: true },
+      remindLogTime: { type: DataTypes.STRING(5), allowNull: false, defaultValue: "20:00" },
+      lastRemindLogDate: { type: DataTypes.DATEONLY, allowNull: true },
       typePreferences: {
         type: DataTypes.JSON,
         allowNull: false,
