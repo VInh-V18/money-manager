@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage, Separator } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { authService } from "@/services/authService";
@@ -45,6 +46,7 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [sessions, setSessions] = useState<AuthSession[]>([]);
   const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
+  const [loginStatusFilter, setLoginStatusFilter] = useState<LoginHistory["status"] | "all">("all");
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [securityLoading, setSecurityLoading] = useState(false);
 
@@ -72,7 +74,7 @@ export default function SettingsPage() {
       setSecurityLoading(true);
       const [sessionItems, history, activities] = await Promise.all([
         authService.sessions(),
-        authService.loginHistory(1, 8),
+        authService.loginHistory(1, 8, loginStatusFilter === "all" ? undefined : loginStatusFilter),
         authService.activityLogs(1, 8),
       ]);
       setSessions(sessionItems);
@@ -87,7 +89,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) void loadSecurity();
-  }, [user]);
+  }, [user, loginStatusFilter]);
 
   const saveProfile = async (data: ProfileForm) => {
     try {
@@ -343,6 +345,23 @@ export default function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <Select
+              value={loginStatusFilter}
+              onValueChange={(value) => setLoginStatusFilter(value as LoginHistory["status"] | "all")}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Lọc trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="SUCCESS">Đăng nhập thành công</SelectItem>
+                <SelectItem value="FAILED_PASSWORD">Sai mật khẩu</SelectItem>
+                <SelectItem value="FAILED_USER">Không tìm thấy tài khoản</SelectItem>
+                <SelectItem value="LOCKED">Tài khoản bị khóa</SelectItem>
+                <SelectItem value="OAUTH_SUCCESS">OAuth thành công</SelectItem>
+                <SelectItem value="OAUTH_FAILED">OAuth thất bại</SelectItem>
+              </SelectContent>
+            </Select>
             {loginHistory.length === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa có lịch sử đăng nhập.</p>
             ) : (
