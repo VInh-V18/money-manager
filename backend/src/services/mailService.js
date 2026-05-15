@@ -39,3 +39,24 @@ export const sendOtpEmail = async ({ to, code, purpose, displayName }) => {
     html,
   });
 };
+
+export const sendNotificationEmail = async ({ to, title, message, severity = "info" }) => {
+  const transporter = getTransporter();
+  if (!transporter) return null;
+
+  const color =
+    severity === "danger" ? "#dc2626" : severity === "warning" ? "#d97706" : "#2563eb";
+
+  return transporter.sendMail({
+    from: mailFrom,
+    to,
+    subject: `${title} - Money Manager`,
+    html: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">
+        <h2 style="color:${color};margin:0 0 12px;">${title}</h2>
+        <p style="font-size:15px;line-height:1.6;margin:0;">${message}</p>
+        <p style="color:#6b7280;font-size:13px;margin-top:24px;">Ban nhan email nay vi da bat thong bao email trong Money Manager.</p>
+      </div>
+    `,
+  });
+};

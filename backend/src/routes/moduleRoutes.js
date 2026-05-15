@@ -29,6 +29,7 @@ import {
   updateTemplateSchema,
   useTemplateSchema,
 } from "../validations/otherValidations.js";
+import { updateNotificationPreferenceSchema } from "../validations/notificationValidation.js";
 
 // ===== Budget =====
 export const budgetRouter = express.Router();
@@ -84,6 +85,8 @@ templateRouter.post("/:id/use", validate(useTemplateSchema), tpl.useTemplate);
 export const notifRouter = express.Router();
 notifRouter.use(protectedRoute);
 notifRouter.get("/", notif.listNotifications);
+notifRouter.get("/preferences", notif.getPreferences);
+notifRouter.put("/preferences", validate(updateNotificationPreferenceSchema), notif.updatePreferences);
 notifRouter.get("/unread-count", notif.getUnreadCount);
 notifRouter.put("/mark-all-read", notif.markAllRead);
 notifRouter.put("/:id/read", notif.markRead);

@@ -7,6 +7,7 @@ import type {
   Debt,
   ExpenseTemplate,
   Notification,
+  NotificationPreference,
   PaginatedResult,
   Transaction,
 } from "@/types";
@@ -99,4 +100,10 @@ export const notificationService = {
   markAllRead: () => api.put("/notifications/mark-all-read").then((r) => r.data),
   remove: (id: number) => api.delete(`/notifications/${id}`).then((r) => r.data),
   removeAllRead: () => api.delete("/notifications/read-all").then((r) => r.data),
+  preferences: () =>
+    api.get("/notifications/preferences").then((r) => r.data.data.preferences as NotificationPreference),
+  updatePreferences: (data: Partial<NotificationPreference>) =>
+    api
+      .put("/notifications/preferences", data)
+      .then((r) => r.data.data.preferences as NotificationPreference),
 };

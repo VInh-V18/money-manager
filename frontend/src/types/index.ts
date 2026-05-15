@@ -318,6 +318,16 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface NotificationPreference {
+  id: number;
+  userId: number;
+  inAppEnabled: boolean;
+  emailEnabled: boolean;
+  typePreferences: Record<NotificationType, boolean>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ===== Report =====
 export interface OverviewData {
   totalBalance: number;

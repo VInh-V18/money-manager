@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Camera, History, LogOut, MonitorSmartphone, Moon, ShieldCheck, Sun } from "lucide-react";
+import { Bell, Camera, History, LogOut, MonitorSmartphone, Moon, ShieldCheck, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage, Separator } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { authService } from "@/services/authService";
+import { notificationService } from "@/services/moduleServices";
 import { getErrorMessage } from "@/lib/axios";
 import { getBackendAssetUrl } from "@/lib/env";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { cn, formatDateTime } from "@/lib/utils";
-import type { ActivityLog, AuthSession, LoginHistory } from "@/types";
+import type { ActivityLog, AuthSession, LoginHistory, NotificationPreference, NotificationType } from "@/types";
 
 const profileSchema = z.object({
   displayName: z.string().min(1),
@@ -37,6 +38,19 @@ const passwordSchema = z.object({
 });
 type PasswordForm = z.infer<typeof passwordSchema>;
 
+const notificationLabels: Record<NotificationType, string> = {
+  budget_warning: "Cảnh báo gần vượt ngân sách",
+  budget_exceeded: "Vượt ngân sách",
+  low_balance: "Số dư ví thấp",
+  fixed_expense_due: "Chi cố định đến hạn",
+  fixed_expense_generated: "Chi cố định đã tạo",
+  abnormal_spending: "Chi tiêu bất thường",
+  goal_progress: "Tiến độ mục tiêu",
+  debt_due: "Nợ đến hạn",
+  remind_log: "Nhắc nhập giao dịch",
+  system: "Thông báo hệ thống",
+};
+
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
@@ -49,6 +63,8 @@ export default function SettingsPage() {
   const [loginStatusFilter, setLoginStatusFilter] = useState<LoginHistory["status"] | "all">("all");
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [securityLoading, setSecurityLoading] = useState(false);
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreference | null>(null);
+  const [notificationSaving, setNotificationSaving] = useState(false);
 
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -90,6 +106,14 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) void loadSecurity();
   }, [user, loginStatusFilter]);
+
+  useEffect(() => {
+    if (!user) return;
+    notificationService
+      .preferences()
+      .then(setNotificationPrefs)
+      .catch((err) => toast.error(getErrorMessage(err, "Không tải được cài đặt thông báo")));
+  }, [user]);
 
   const saveProfile = async (data: ProfileForm) => {
     try {
@@ -152,6 +176,34 @@ export default function SettingsPage() {
       await loadSecurity();
     } catch (err) {
       toast.error(getErrorMessage(err));
+    }
+  };
+
+  const updateNotificationPrefs = async (patch: Partial<NotificationPreference>) => {
+    if (!notificationPrefs) return;
+    const next = {
+      ...notificationPrefs,
+      ...patch,
+      typePreferences: {
+        ...notificationPrefs.typePreferences,
+        ...(patch.typePreferences || {}),
+      },
+    };
+    setNotificationPrefs(next);
+    setNotificationSaving(true);
+    try {
+      const saved = await notificationService.updatePreferences({
+        inAppEnabled: next.inAppEnabled,
+        emailEnabled: next.emailEnabled,
+        typePreferences: next.typePreferences,
+      });
+      setNotificationPrefs(saved);
+      toast.success("Đã cập nhật cài đặt thông báo");
+    } catch (err) {
+      setNotificationPrefs(notificationPrefs);
+      toast.error(getErrorMessage(err, "Không lưu được cài đặt thông báo"));
+    } finally {
+      setNotificationSaving(false);
     }
   };
 
@@ -285,6 +337,73 @@ export default function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="size-5" />
+            Cài đặt thông báo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!notificationPrefs ? (
+            <p className="text-sm text-muted-foreground">Đang tải cài đặt thông báo...</p>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <span>
+                    <span className="block text-sm font-medium">Thông báo trong app</span>
+                    <span className="text-xs text-muted-foreground">Hiển thị tại trang Thông báo</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={notificationPrefs.inAppEnabled}
+                    disabled={notificationSaving}
+                    onChange={(event) => updateNotificationPrefs({ inAppEnabled: event.target.checked })}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <span>
+                    <span className="block text-sm font-medium">Gửi qua email</span>
+                    <span className="text-xs text-muted-foreground">Dùng SMTP đã cấu hình trên backend</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={notificationPrefs.emailEnabled}
+                    disabled={notificationSaving}
+                    onChange={(event) => updateNotificationPrefs({ emailEnabled: event.target.checked })}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(Object.keys(notificationLabels) as NotificationType[]).map((type) => (
+                  <label key={type} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                    <span className="text-sm">{notificationLabels[type]}</span>
+                    <input
+                      type="checkbox"
+                      className="size-4"
+                      checked={notificationPrefs.typePreferences[type] !== false}
+                      disabled={notificationSaving}
+                      onChange={(event) =>
+                        updateNotificationPrefs({
+                          typePreferences: {
+                            ...notificationPrefs.typePreferences,
+                            [type]: event.target.checked,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
