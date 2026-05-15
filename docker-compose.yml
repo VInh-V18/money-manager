@@ -1,0 +1,56 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: money_manager
+      MYSQL_ROOT_PASSWORD: money_manager_root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmoney_manager_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: money_manager
+      DB_USER: root
+      DB_PASSWORD: money_manager_root
+      DB_SYNC_ALTER: "false"
+      CLIENT_URL: http://localhost:5173
+      CLIENT_URLS: http://localhost:5173,http://localhost
+      API_PUBLIC_URL: http://localhost:5001
+      JWT_ACCESS_SECRET: change_access_secret
+      JWT_REFRESH_SECRET: change_refresh_secret
+      UPLOAD_DIR: uploads
+    ports:
+      - "5001:5001"
+    volumes:
+      - backend_uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mysql_data:
+  backend_uploads:
