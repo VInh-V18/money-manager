@@ -359,6 +359,18 @@ export interface RangeReport {
     expenseCount: number;
     savingRate: number;
   };
+  financialHealth: {
+    score: number;
+    level: "good" | "fair" | "watch" | "risk";
+    totalBalance: number;
+    savingRate: number;
+    exceededBudgets: number;
+    warningBudgets: number;
+    overdueDebts: number;
+    lowWallets: number;
+    negativeWallets: number;
+    suggestions: string[];
+  };
   byCategory: Array<{
     categoryId: number;
     type: CategoryType;

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { reportService, downloadBlob } from "@/services/reportService";
@@ -31,6 +32,13 @@ const PRESETS = [
   { label: "30 ngày qua", days: 29 },
   { label: "Tháng này", monthly: true },
 ];
+
+const healthMeta = {
+  good: { label: "Tốt", color: "bg-success", text: "text-success" },
+  fair: { label: "Ổn", color: "bg-primary", text: "text-primary" },
+  watch: { label: "Cần chú ý", color: "bg-warning", text: "text-warning" },
+  risk: { label: "Rủi ro", color: "bg-destructive", text: "text-destructive" },
+} as const;
 
 export default function ReportPage() {
   const [range, setRange] = useState({
@@ -253,6 +261,54 @@ export default function ReportPage() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sức khỏe tài chính</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className={`text-4xl font-bold ${healthMeta[report.financialHealth.level].text}`}>
+                    {report.financialHealth.score}/100
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Trạng thái: {healthMeta[report.financialHealth.level].label}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                  <div>
+                    <p className="text-muted-foreground">Vượt ngân sách</p>
+                    <p className="font-semibold">{report.financialHealth.exceededBudgets}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Nợ quá hạn</p>
+                    <p className="font-semibold">{report.financialHealth.overdueDebts}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Ví thấp</p>
+                    <p className="font-semibold">{report.financialHealth.lowWallets}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Ví âm</p>
+                    <p className="font-semibold">{report.financialHealth.negativeWallets}</p>
+                  </div>
+                </div>
+              </div>
+              <Progress value={report.financialHealth.score} indicatorClassName={healthMeta[report.financialHealth.level].color} />
+              {report.financialHealth.suggestions.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {report.financialHealth.suggestions.map((item) => (
+                    <div key={item} className="rounded-lg border px-3 py-2 text-sm text-muted-foreground">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Không có cảnh báo lớn trong kỳ báo cáo này.</p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Daily bar chart */}
           <Card>

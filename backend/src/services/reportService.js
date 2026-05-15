@@ -4,8 +4,10 @@ import {
   Wallet,
   Category,
   Budget,
+  Debt,
   FixedExpense,
 } from "../models/index.js";
+import { calculateBudgetsSummary } from "./budgetService.js";
 import {
   formatDate,
   startOfMonth,
@@ -27,6 +29,52 @@ const sumWhere = async (userId, type, fromDate, toDate) => {
     raw: true,
   });
   return Number(r?.total || 0);
+};
+
+const getFinancialHealth = async (userId, summary) => {
+  const [wallets, budgets, overdueDebts] = await Promise.all([
+    Wallet.findAll({ where: { userId, isActive: true } }),
+    calculateBudgetsSummary(userId),
+    Debt.count({ where: { userId, status: "overdue" } }),
+  ]);
+
+  const activeWallets = wallets.filter((wallet) => !wallet.excludeFromTotal);
+  const totalBalance = activeWallets.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
+  const lowWallets = activeWallets.filter((wallet) => {
+    const threshold = Number(wallet.lowBalanceThreshold || 0);
+    return threshold > 0 && Number(wallet.balance) <= threshold;
+  }).length;
+  const negativeWallets = activeWallets.filter((wallet) => Number(wallet.balance) < 0).length;
+  const exceededBudgets = budgets.filter((budget) => budget.isExceeded).length;
+  const warningBudgets = budgets.filter((budget) => budget.isWarning && !budget.isExceeded).length;
+
+  const deductions = [];
+  if (summary.income <= 0) deductions.push({ key: "no_income", points: 15, message: "Chua co thu nhap trong khoang nay" });
+  if (summary.savingRate < 0) deductions.push({ key: "negative_saving", points: 25, message: "Chi tieu dang cao hon thu nhap" });
+  else if (summary.savingRate < 10) deductions.push({ key: "low_saving", points: 12, message: "Ty le tiet kiem duoi 10%" });
+  if (totalBalance < 0) deductions.push({ key: "negative_balance", points: 20, message: "Tong so du vi dang am" });
+  if (negativeWallets > 0) deductions.push({ key: "negative_wallets", points: Math.min(15, negativeWallets * 5), message: `${negativeWallets} vi dang am so du` });
+  if (lowWallets > 0) deductions.push({ key: "low_wallets", points: Math.min(12, lowWallets * 4), message: `${lowWallets} vi duoi nguong an toan` });
+  if (exceededBudgets > 0) deductions.push({ key: "exceeded_budgets", points: Math.min(20, exceededBudgets * 10), message: `${exceededBudgets} ngan sach da vuot` });
+  if (warningBudgets > 0) deductions.push({ key: "warning_budgets", points: Math.min(10, warningBudgets * 4), message: `${warningBudgets} ngan sach gan vuot` });
+  if (overdueDebts > 0) deductions.push({ key: "overdue_debts", points: Math.min(18, overdueDebts * 9), message: `${overdueDebts} khoan no qua han` });
+
+  const score = Math.max(0, 100 - deductions.reduce((sum, item) => sum + item.points, 0));
+  const level = score >= 80 ? "good" : score >= 60 ? "fair" : score >= 40 ? "watch" : "risk";
+  const suggestions = deductions.slice(0, 4).map((item) => item.message);
+
+  return {
+    score,
+    level,
+    totalBalance,
+    savingRate: summary.savingRate,
+    exceededBudgets,
+    warningBudgets,
+    overdueDebts,
+    lowWallets,
+    negativeWallets,
+    suggestions,
+  };
 };
 
 /**
@@ -160,16 +208,19 @@ export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
     ],
   });
 
+  const summary = {
+    income,
+    expense,
+    net: income - expense,
+    incomeCount,
+    expenseCount,
+    savingRate: income > 0 ? Math.round(((income - expense) / income) * 10000) / 100 : 0,
+  };
+
   return {
     range: { from: fromDate, to: toDate },
-    summary: {
-      income,
-      expense,
-      net: income - expense,
-      incomeCount,
-      expenseCount,
-      savingRate: income > 0 ? Math.round(((income - expense) / income) * 10000) / 100 : 0,
-    },
+    summary,
+    financialHealth: await getFinancialHealth(userId, summary),
     byCategory: byCategory.map((row) => ({
       categoryId: row.categoryId,
       type: row.type,
