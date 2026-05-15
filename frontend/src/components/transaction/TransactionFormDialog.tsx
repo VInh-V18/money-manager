@@ -41,7 +41,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | undefined>();
 
-  const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       type: "expense",
@@ -134,6 +134,12 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
     }
     setReceiptFile(file);
     setReceiptPreview(URL.createObjectURL(file));
+  };
+
+  const removeReceipt = () => {
+    setReceiptFile(null);
+    setReceiptPreview(undefined);
+    setValue("receiptUrl", null, { shouldDirty: true });
   };
 
   const filteredCats = categories.filter((c) => c.type === txType);
@@ -257,8 +263,11 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
             <Label>Ảnh hóa đơn</Label>
             <Input type="file" accept="image/*" onChange={handleReceiptChange} />
             {receiptPreview && (
-              <div className="overflow-hidden rounded-lg border">
+              <div className="space-y-2 overflow-hidden rounded-lg border p-2">
                 <img src={receiptPreview} alt="Ảnh hóa đơn" className="max-h-48 w-full object-contain bg-muted" />
+                <Button type="button" variant="outline" size="sm" onClick={removeReceipt} className="w-full">
+                  Go anh hoa don
+                </Button>
               </div>
             )}
           </div>
