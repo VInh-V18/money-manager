@@ -24,7 +24,7 @@ import { reportService, downloadBlob } from "@/services/reportService";
 import { getErrorMessage } from "@/lib/axios";
 import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency, toISODate } from "@/lib/utils";
-import type { RangeReport, DailyStat, WeeklyStat } from "@/types";
+import type { ForecastData, MonthlyComparison, RangeReport, DailyStat, WeeklyStat } from "@/types";
 
 const PRESETS = [
   { label: "Hôm nay", days: 0 },
@@ -48,6 +48,8 @@ export default function ReportPage() {
   const [report, setReport] = useState<RangeReport | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
+  const [comparison, setComparison] = useState<MonthlyComparison | null>(null);
+  const [forecast, setForecast] = useState<ForecastData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "csv" | "pdf" | "backup" | "restore" | "csv-import" | null>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -56,14 +58,18 @@ export default function ReportPage() {
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const [r, d, w] = await Promise.all([
+      const [r, d, w, c, f] = await Promise.all([
         reportService.range(range.from, range.to),
         reportService.dailyStats(range.from, range.to),
         reportService.weeklyStats(range.from, range.to),
+        reportService.compareMonths(),
+        reportService.forecast(),
       ]);
       setReport(r);
       setDailyStats(d.items);
       setWeeklyStats(w.items);
+      setComparison(c);
+      setForecast(f);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -312,6 +318,73 @@ export default function ReportPage() {
               )}
             </CardContent>
           </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {comparison && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>So sanh thang nay</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Thu nhap thang nay</p>
+                      <p className="mt-1 text-xl font-semibold text-income">{formatCurrency(comparison.current.income)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {comparison.change.income >= 0 ? "+" : ""}{comparison.change.income}% so voi thang truoc
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Chi tieu thang nay</p>
+                      <p className="mt-1 text-xl font-semibold text-expense">{formatCurrency(comparison.current.expense)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {comparison.change.expense >= 0 ? "+" : ""}{comparison.change.expense}% so voi thang truoc
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg bg-muted p-3 text-sm">
+                      <p className="text-muted-foreground">Thang truoc thu</p>
+                      <p className="font-semibold">{formatCurrency(comparison.previous.income)}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted p-3 text-sm">
+                      <p className="text-muted-foreground">Thang truoc chi</p>
+                      <p className="font-semibold">{formatCurrency(comparison.previous.expense)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {forecast && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Du bao cuoi thang</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Chi trung binh/ngay</p>
+                      <p className="mt-1 text-xl font-semibold">{formatCurrency(forecast.avgDailyExpense)}</p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Du bao chi ca thang</p>
+                      <p className="mt-1 text-xl font-semibold text-expense">{formatCurrency(forecast.projectedMonthExpense)}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-muted p-3 text-sm">
+                    <p className="text-muted-foreground">Du kien con lai cuoi thang</p>
+                    <p className={`text-lg font-semibold ${forecast.projectedRemainingByMonthEnd >= 0 ? "text-income" : "text-expense"}`}>
+                      {formatCurrency(forecast.projectedRemainingByMonthEnd)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Da qua {forecast.daysPassed} ngay, con {forecast.daysLeft} ngay trong thang.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {/* Daily bar chart */}
           <Card>

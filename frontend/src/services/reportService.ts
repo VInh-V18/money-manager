@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import type { OverviewData, RangeReport, DailyStat, WeeklyStat } from "@/types";
+import type { ForecastData, MonthlyComparison, OverviewData, RangeReport, DailyStat, WeeklyStat } from "@/types";
 
 const asDailyStats = (value: unknown): DailyStat[] =>
   Array.isArray(value) ? (value as DailyStat[]) : [];
@@ -39,9 +39,9 @@ export const reportService = {
       }),
 
   compareMonths: () =>
-    api.get("/reports/compare-months").then((r) => r.data.data),
+    api.get("/reports/compare-months").then((r) => r.data.data as MonthlyComparison),
 
-  forecast: () => api.get("/reports/forecast").then((r) => r.data.data),
+  forecast: () => api.get("/reports/forecast").then((r) => r.data.data as ForecastData),
 
   presetRanges: () => api.get("/reports/preset-ranges").then((r) => r.data.data),
 

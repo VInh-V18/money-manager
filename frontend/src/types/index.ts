@@ -395,3 +395,30 @@ export interface WeeklyStat {
   expense: number;
   net: number;
 }
+
+export interface MonthlyComparison {
+  current: {
+    income: number;
+    expense: number;
+    range: { from: string; to: string };
+  };
+  previous: {
+    income: number;
+    expense: number;
+    range: { from: string; to: string };
+  };
+  change: {
+    income: number;
+    expense: number;
+  };
+}
+
+export interface ForecastData {
+  monthExpenseSoFar: number;
+  monthIncomeSoFar: number;
+  avgDailyExpense: number;
+  daysPassed: number;
+  daysLeft: number;
+  projectedMonthExpense: number;
+  projectedRemainingByMonthEnd: number;
+}
