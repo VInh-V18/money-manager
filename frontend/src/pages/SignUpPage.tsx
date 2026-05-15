@@ -12,7 +12,13 @@ const schema = z.object({
   username: z.string().min(3, "Tối thiểu 3 ký tự").regex(/^[a-zA-Z0-9_]+$/, "Chỉ gồm chữ, số, gạch dưới"),
   email: z.string().email("Email không hợp lệ"),
   displayName: z.string().min(1, "Vui lòng nhập họ tên"),
-  password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự"),
+  password: z
+    .string()
+    .min(8, "Mật khẩu tối thiểu 8 ký tự")
+    .regex(/[a-z]/, "Cần có chữ thường")
+    .regex(/[A-Z]/, "Cần có chữ hoa")
+    .regex(/\d/, "Cần có số")
+    .regex(/[^A-Za-z0-9]/, "Cần có ký tự đặc biệt"),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -69,6 +75,9 @@ export default function SignUpPage() {
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
               <Input id="password" type="password" {...register("password")} placeholder="********" />
+              <p className="text-xs text-muted-foreground">
+                Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.
+              </p>
               <p className="min-h-4 text-xs text-destructive" aria-live="polite">
                 {errors.password?.message}
               </p>

@@ -77,5 +77,10 @@ router.put(
   ctrl.changePassword
 );
 router.post("/avatar", uploadImage.single("avatar"), ctrl.uploadAvatar);
+router.get("/sessions", ctrl.listSessions);
+router.delete("/sessions/others", ctrl.revokeOtherSessions);
+router.delete("/sessions/:id", ctrl.revokeSession);
+router.get("/login-history", ctrl.loginHistory);
+router.get("/activity-logs", ctrl.activityLogs);
 
 export default router;

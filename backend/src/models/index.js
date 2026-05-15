@@ -14,6 +14,8 @@ import DebtModel from "./Debt.js";
 import WalletTransferModel from "./WalletTransfer.js";
 import NotificationModel from "./Notification.js";
 import ActivityLogModel from "./ActivityLog.js";
+import LoginHistoryModel from "./LoginHistory.js";
+import WalletBalanceHistoryModel from "./WalletBalanceHistory.js";
 
 // 1. khoi tao tat ca model
 const User = UserModel(sequelize);
@@ -30,6 +32,8 @@ const Debt = DebtModel(sequelize);
 const WalletTransfer = WalletTransferModel(sequelize);
 const Notification = NotificationModel(sequelize);
 const ActivityLog = ActivityLogModel(sequelize);
+const LoginHistory = LoginHistoryModel(sequelize);
+const WalletBalanceHistory = WalletBalanceHistoryModel(sequelize);
 
 // 2. dinh nghia quan he
 
@@ -73,6 +77,12 @@ Notification.belongsTo(User, { foreignKey: "userId" });
 User.hasMany(ActivityLog, { foreignKey: "userId", onDelete: "CASCADE" });
 ActivityLog.belongsTo(User, { foreignKey: "userId" });
 
+User.hasMany(LoginHistory, { foreignKey: "userId", onDelete: "SET NULL" });
+LoginHistory.belongsTo(User, { foreignKey: "userId" });
+
+User.hasMany(WalletBalanceHistory, { foreignKey: "userId", onDelete: "CASCADE" });
+WalletBalanceHistory.belongsTo(User, { foreignKey: "userId" });
+
 // Category - cay cha con (self reference)
 Category.hasMany(Category, { foreignKey: "parentId", as: "children" });
 Category.belongsTo(Category, { foreignKey: "parentId", as: "parent" });
@@ -96,6 +106,8 @@ Wallet.hasMany(FinancialGoal, { foreignKey: "walletId" });
 FinancialGoal.belongsTo(Wallet, { foreignKey: "walletId" });
 Wallet.hasMany(Debt, { foreignKey: "walletId" });
 Debt.belongsTo(Wallet, { foreignKey: "walletId" });
+Wallet.hasMany(WalletBalanceHistory, { foreignKey: "walletId" });
+WalletBalanceHistory.belongsTo(Wallet, { foreignKey: "walletId" });
 
 // WalletTransfer 2 vi
 Wallet.hasMany(WalletTransfer, { foreignKey: "fromWalletId", as: "outgoingTransfers" });
@@ -129,6 +141,8 @@ export {
   WalletTransfer,
   Notification,
   ActivityLog,
+  LoginHistory,
+  WalletBalanceHistory,
 };
 
 export default {
@@ -147,4 +161,6 @@ export default {
   WalletTransfer,
   Notification,
   ActivityLog,
+  LoginHistory,
+  WalletBalanceHistory,
 };

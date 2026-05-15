@@ -12,6 +12,11 @@ import {
   forgotPasswordService,
   resetPasswordService,
   changePasswordService,
+  listSessionsService,
+  revokeSessionService,
+  revokeOtherSessionsService,
+  listLoginHistoryService,
+  listActivityLogsService,
 } from "../services/authService.js";
 import env from "../config/env.js";
 
@@ -177,4 +182,36 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
   const url = `/uploads/${req.file.filename}`;
   await req.user.update({ avatarUrl: url, avatarId: req.file.filename });
   return ok(res, { avatarUrl: url }, "Cap nhat avatar thanh cong");
+});
+
+export const listSessions = asyncHandler(async (req, res) => {
+  const sessions = await listSessionsService(req.user.id, req.cookies?.refreshToken);
+  return ok(res, { items: sessions });
+});
+
+export const revokeSession = asyncHandler(async (req, res) => {
+  const { revokedCurrent } = await revokeSessionService(
+    req.user.id,
+    Number(req.params.id),
+    req.cookies?.refreshToken
+  );
+  if (revokedCurrent) {
+    res.clearCookie("refreshToken", { path: "/" });
+  }
+  return ok(res, { revokedCurrent }, "Da dang xuat phien");
+});
+
+export const revokeOtherSessions = asyncHandler(async (req, res) => {
+  const data = await revokeOtherSessionsService(req.user.id, req.cookies?.refreshToken);
+  return ok(res, data, "Da dang xuat cac thiet bi khac");
+});
+
+export const loginHistory = asyncHandler(async (req, res) => {
+  const data = await listLoginHistoryService(req.user.id, req.query);
+  return ok(res, data);
+});
+
+export const activityLogs = asyncHandler(async (req, res) => {
+  const data = await listActivityLogsService(req.user.id, req.query);
+  return ok(res, data);
 });

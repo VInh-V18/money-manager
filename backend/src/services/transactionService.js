@@ -7,7 +7,7 @@
  * TAT CA cac ham deu nhan tham so transaction (DB transaction Sequelize)
  * de dam bao tinh atomic. Neu loi giua chung -> rollback toan bo.
  */
-import { Transaction, Wallet } from "../models/index.js";
+import { Transaction, Wallet, WalletBalanceHistory } from "../models/index.js";
 import {
   badRequest,
   notFoundError,
@@ -23,7 +23,33 @@ import {
  * @param sign +1 = ap dung; -1 = hoan tac
  * @param dbTx Sequelize transaction
  */
-const applyToWallet = async (tx, sign, dbTx) => {
+const writeWalletBalanceHistory = async ({
+  userId,
+  walletId,
+  beforeBalance,
+  amountChanged,
+  afterBalance,
+  reason,
+  referenceType,
+  referenceId,
+  dbTx,
+}) => {
+  await WalletBalanceHistory.create(
+    {
+      userId,
+      walletId,
+      beforeBalance,
+      amountChanged,
+      afterBalance,
+      reason,
+      referenceType,
+      referenceId,
+    },
+    { transaction: dbTx }
+  );
+};
+
+const applyToWallet = async (tx, sign, dbTx, reason = "transaction") => {
   const wallet = await Wallet.findByPk(tx.walletId, {
     transaction: dbTx,
     lock: dbTx.LOCK.UPDATE, // pessimistic lock -> tranh race condition
@@ -34,8 +60,20 @@ const applyToWallet = async (tx, sign, dbTx) => {
   const delta =
     tx.type === "income" ? sign * amount : sign * -amount;
 
-  const newBalance = Number(wallet.balance) + delta;
+  const oldBalance = Number(wallet.balance);
+  const newBalance = oldBalance + delta;
   await wallet.update({ balance: newBalance }, { transaction: dbTx });
+  await writeWalletBalanceHistory({
+    userId: tx.userId,
+    walletId: wallet.id,
+    beforeBalance: oldBalance,
+    amountChanged: delta,
+    afterBalance: newBalance,
+    reason,
+    referenceType: "transaction",
+    referenceId: tx.id,
+    dbTx,
+  });
   return newBalance;
 };
 
@@ -83,7 +121,7 @@ export const createTransactionWithBalance = async (
   );
 
   // 4. cap nhat so du
-  await applyToWallet(tx, +1, dbTx);
+  await applyToWallet(tx, +1, dbTx, "transaction_create");
 
   return tx;
 };
@@ -101,7 +139,7 @@ export const updateTransactionWithBalance = async (
   { allowNegative = false } = {}
 ) => {
   // 1. hoan tac GD cu
-  await applyToWallet(oldTx, -1, dbTx);
+  await applyToWallet(oldTx, -1, dbTx, "transaction_update_rollback");
 
   // 2. neu doi vi -> validate vi moi
   const targetWalletId = newData.walletId ?? oldTx.walletId;
@@ -122,7 +160,7 @@ export const updateTransactionWithBalance = async (
   await oldTx.update(newData, { transaction: dbTx });
 
   // 5. ap dung GD moi
-  await applyToWallet(oldTx, +1, dbTx);
+  await applyToWallet(oldTx, +1, dbTx, "transaction_update_apply");
 
   return oldTx;
 };
@@ -131,7 +169,7 @@ export const updateTransactionWithBalance = async (
  * Xoa giao dich + hoan tac so du
  */
 export const deleteTransactionWithBalance = async (tx, dbTx) => {
-  await applyToWallet(tx, -1, dbTx);
+  await applyToWallet(tx, -1, dbTx, "transaction_delete");
   await tx.destroy({ transaction: dbTx });
 };
 
@@ -176,12 +214,16 @@ export const transferBetweenWallets = async (userId, data, dbTx) => {
   }
 
   // cap nhat so du
+  const fromBefore = Number(fromWallet.balance);
+  const toBefore = Number(toWallet.balance);
+  const fromAfter = fromBefore - totalDeduct;
+  const toAfter = toBefore + Number(amount);
   await fromWallet.update(
-    { balance: Number(fromWallet.balance) - totalDeduct },
+    { balance: fromAfter },
     { transaction: dbTx }
   );
   await toWallet.update(
-    { balance: Number(toWallet.balance) + Number(amount) },
+    { balance: toAfter },
     { transaction: dbTx }
   );
 
@@ -199,6 +241,31 @@ export const transferBetweenWallets = async (userId, data, dbTx) => {
     },
     { transaction: dbTx }
   );
+
+  await Promise.all([
+    writeWalletBalanceHistory({
+      userId,
+      walletId: fromWallet.id,
+      beforeBalance: fromBefore,
+      amountChanged: -totalDeduct,
+      afterBalance: fromAfter,
+      reason: "wallet_transfer_out",
+      referenceType: "wallet_transfer",
+      referenceId: transfer.id,
+      dbTx,
+    }),
+    writeWalletBalanceHistory({
+      userId,
+      walletId: toWallet.id,
+      beforeBalance: toBefore,
+      amountChanged: Number(amount),
+      afterBalance: toAfter,
+      reason: "wallet_transfer_in",
+      referenceType: "wallet_transfer",
+      referenceId: transfer.id,
+      dbTx,
+    }),
+  ]);
 
   return transfer;
 };

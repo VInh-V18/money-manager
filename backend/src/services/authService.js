@@ -7,6 +7,8 @@ import {
   User,
   Otp,
   RefreshToken,
+  LoginHistory,
+  ActivityLog,
   Category,
   sequelize,
 } from "../models/index.js";
@@ -24,6 +26,8 @@ import { addDays } from "../utils/date.js";
 
 const OTP_TTL_MINUTES = 10;
 const RESET_TOKEN_TTL_MINUTES = 15;
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCK_MINUTES = 15;
 
 const DEFAULT_INCOME_CATS = [
   { name: "Luong", icon: "briefcase", color: "#10B981" },
@@ -72,21 +76,103 @@ const createDefaultCategories = (userId) => [
   })),
 ];
 
+const assertStrongPassword = (password, { email, username } = {}) => {
+  const value = String(password || "");
+  const normalized = value.toLowerCase();
+  const weakPasswords = new Set([
+    "password",
+    "password123",
+    "12345678",
+    "123456789",
+    "qwerty123",
+    "admin123",
+    "demo1234",
+  ]);
+
+  if (value.length < 8) {
+    throw badRequest("Mat khau phai co toi thieu 8 ky tu");
+  }
+  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value) || !/[^A-Za-z0-9]/.test(value)) {
+    throw badRequest("Mat khau phai co chu hoa, chu thuong, so va ky tu dac biet");
+  }
+  if (weakPasswords.has(normalized)) {
+    throw badRequest("Mat khau qua yeu, vui long chon mat khau kho doan hon");
+  }
+  const emailName = email ? String(email).split("@")[0].toLowerCase() : "";
+  const usernameValue = username ? String(username).toLowerCase() : "";
+  if ((emailName && normalized.includes(emailName)) || (usernameValue && normalized.includes(usernameValue))) {
+    throw badRequest("Mat khau khong duoc chua email hoac username");
+  }
+};
+
 const safeUserJson = (user) => {
   const safeUser = user.toJSON();
   delete safeUser.hashedPassword;
   return safeUser;
 };
 
+const getClientInfo = (userAgent = "") => {
+  const ua = String(userAgent || "");
+  const browser =
+    ua.includes("Edg/")
+      ? "Microsoft Edge"
+      : ua.includes("Chrome/")
+        ? "Chrome"
+        : ua.includes("Firefox/")
+          ? "Firefox"
+          : ua.includes("Safari/")
+            ? "Safari"
+            : "Unknown";
+  const os =
+    ua.includes("Windows")
+      ? "Windows"
+      : ua.includes("Android")
+        ? "Android"
+        : ua.includes("iPhone") || ua.includes("iPad")
+          ? "iOS"
+          : ua.includes("Mac OS")
+            ? "macOS"
+            : ua.includes("Linux")
+              ? "Linux"
+              : "Unknown";
+  const deviceName = ua.includes("Mobile") || ua.includes("Android") || ua.includes("iPhone")
+    ? "Mobile"
+    : "Desktop";
+  return { browser, os, deviceName };
+};
+
+const recordLoginHistory = async ({
+  userId,
+  email,
+  status,
+  reason,
+  userAgent,
+  ipAddress,
+}) => {
+  const clientInfo = getClientInfo(userAgent);
+  await LoginHistory.create({
+    userId,
+    email,
+    status,
+    reason,
+    userAgent: userAgent?.slice(0, 500),
+    ipAddress,
+    ...clientInfo,
+  }).catch(() => {});
+};
+
 const issueSession = async (user, { userAgent, ipAddress } = {}) => {
   const accessToken = signAccessToken({ id: user.id });
   const refreshToken = signRefreshToken({ id: user.id });
+  const clientInfo = getClientInfo(userAgent);
 
   await RefreshToken.create({
     userId: user.id,
     token: refreshToken,
     userAgent: userAgent?.slice(0, 500),
     ipAddress,
+    ...clientInfo,
+    lastActiveAt: new Date(),
     expiresAt: addDays(new Date(), 7),
   });
 
@@ -99,6 +185,8 @@ const issueSession = async (user, { userAgent, ipAddress } = {}) => {
  *   - Tao 18 danh muc mac dinh (10 chi + 8 thu) -> de user dung ngay
  */
 export const signUpService = async ({ username, email, password, displayName }) => {
+  assertStrongPassword(password, { email, username });
+
   // check trung username/email
   const existing = await User.findOne({
     where: { [Op.or]: [{ email }, { username }] },
@@ -120,6 +208,7 @@ export const signUpService = async ({ username, email, password, displayName }) 
         hashedPassword: await hashPassword(password),
         displayName,
         isVerified: true,
+        passwordChangedAt: new Date(),
       },
       { transaction: dbTx }
     );
@@ -209,6 +298,10 @@ export const forgotPasswordService = async ({ email }) => {
 export const resetPasswordService = async ({ email, resetToken, newPassword }) => {
   const user = await User.findOne({ where: { email } });
   if (!user) throw notFoundError("Email khong ton tai");
+  assertStrongPassword(newPassword, { email: user.email, username: user.username });
+
+  const reused = await comparePassword(newPassword, user.hashedPassword);
+  if (reused) throw badRequest("Mat khau moi khong duoc trung mat khau cu");
 
   const tokenRow = await Otp.findOne({
     where: {
@@ -224,13 +317,18 @@ export const resetPasswordService = async ({ email, resetToken, newPassword }) =
 
   await sequelize.transaction(async (dbTx) => {
     await user.update(
-      { hashedPassword: await hashPassword(newPassword) },
+      {
+        hashedPassword: await hashPassword(newPassword),
+        failedLoginCount: 0,
+        lockedUntil: null,
+        passwordChangedAt: new Date(),
+      },
       { transaction: dbTx }
     );
     await tokenRow.update({ used: true }, { transaction: dbTx });
     // logout het thiet bi cu
     await RefreshToken.update(
-      { revoked: true },
+      { revoked: true, revokedAt: new Date() },
       { where: { userId: user.id, revoked: false }, transaction: dbTx }
     );
   });
@@ -246,12 +344,67 @@ export const signInService = async ({ identifier, password, userAgent, ipAddress
       [Op.or]: [{ email: identifier }, { username: identifier }],
     },
   });
-  if (!user) throw unauthorizedError("Sai thong tin dang nhap");
+  if (!user) {
+    await recordLoginHistory({
+      email: identifier,
+      status: "FAILED_USER",
+      reason: "User not found",
+      userAgent,
+      ipAddress,
+    });
+    throw unauthorizedError("Sai thong tin dang nhap");
+  }
+
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    await recordLoginHistory({
+      userId: user.id,
+      email: user.email,
+      status: "LOCKED",
+      reason: "Account temporarily locked",
+      userAgent,
+      ipAddress,
+    });
+    throw unauthorizedError("Tai khoan dang bi khoa tam thoi. Vui long thu lai sau");
+  }
 
   const ok = await comparePassword(password, user.hashedPassword);
-  if (!ok) throw unauthorizedError("Sai thong tin dang nhap");
+  if (!ok) {
+    const failedLoginCount = Number(user.failedLoginCount || 0) + 1;
+    const shouldLock = failedLoginCount >= MAX_FAILED_LOGIN_ATTEMPTS;
+    await user.update({
+      failedLoginCount,
+      lockedUntil: shouldLock
+        ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000)
+        : user.lockedUntil,
+    });
+    await recordLoginHistory({
+      userId: user.id,
+      email: user.email,
+      status: shouldLock ? "LOCKED" : "FAILED_PASSWORD",
+      reason: shouldLock ? "Too many failed password attempts" : "Wrong password",
+      userAgent,
+      ipAddress,
+    });
+    throw unauthorizedError(
+      shouldLock
+        ? `Sai mat khau qua ${MAX_FAILED_LOGIN_ATTEMPTS} lan. Tai khoan bi khoa ${LOCK_MINUTES} phut`
+        : "Sai thong tin dang nhap"
+    );
+  }
 
-  return issueSession(user, { userAgent, ipAddress });
+  if (user.failedLoginCount || user.lockedUntil) {
+    await user.update({ failedLoginCount: 0, lockedUntil: null });
+  }
+
+  const session = await issueSession(user, { userAgent, ipAddress });
+  await recordLoginHistory({
+    userId: user.id,
+    email: user.email,
+    status: "SUCCESS",
+    userAgent,
+    ipAddress,
+  });
+  return session;
 };
 
 const oauthProviders = {
@@ -408,6 +561,7 @@ export const signInWithOAuthService = async ({
           displayName: profile.displayName || profile.email,
           avatarUrl: profile.avatarUrl,
           isVerified: true,
+          passwordChangedAt: new Date(),
         },
         { transaction: dbTx }
       );
@@ -422,7 +576,15 @@ export const signInWithOAuthService = async ({
     });
   }
 
-  return issueSession(user, { userAgent, ipAddress });
+  const session = await issueSession(user, { userAgent, ipAddress });
+  await recordLoginHistory({
+    userId: user.id,
+    email: user.email,
+    status: "OAUTH_SUCCESS",
+    userAgent,
+    ipAddress,
+  });
+  return session;
 };
 
 export const refreshTokenService = async (oldToken) => {
@@ -449,6 +611,7 @@ export const refreshTokenService = async (oldToken) => {
   const user = await User.findByPk(row.userId);
   if (!user) throw unauthorizedError("User khong ton tai");
 
+  await row.update({ lastActiveAt: new Date() });
   const accessToken = signAccessToken({ id: user.id });
   return { accessToken };
 };
@@ -456,9 +619,93 @@ export const refreshTokenService = async (oldToken) => {
 export const signOutService = async (refreshToken) => {
   if (!refreshToken) return;
   await RefreshToken.update(
-    { revoked: true },
+    { revoked: true, revokedAt: new Date() },
     { where: { token: refreshToken } }
   );
+};
+
+export const listSessionsService = async (userId, currentRefreshToken) => {
+  const rows = await RefreshToken.findAll({
+    where: {
+      userId,
+      revoked: false,
+      expiresAt: { [Op.gt]: new Date() },
+    },
+    order: [["lastActiveAt", "DESC"], ["createdAt", "DESC"]],
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    deviceName: row.deviceName,
+    browser: row.browser,
+    os: row.os,
+    ipAddress: row.ipAddress,
+    lastActiveAt: row.lastActiveAt,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    isCurrent: currentRefreshToken ? row.token === currentRefreshToken : false,
+  }));
+};
+
+export const revokeSessionService = async (userId, sessionId, currentRefreshToken) => {
+  const row = await RefreshToken.findOne({
+    where: { id: sessionId, userId, revoked: false },
+  });
+  if (!row) throw notFoundError("Khong tim thay phien dang nhap");
+  await row.update({ revoked: true, revokedAt: new Date() });
+  return { revokedCurrent: currentRefreshToken ? row.token === currentRefreshToken : false };
+};
+
+export const revokeOtherSessionsService = async (userId, currentRefreshToken) => {
+  const where = { userId, revoked: false };
+  if (currentRefreshToken) where.token = { [Op.ne]: currentRefreshToken };
+  const [count] = await RefreshToken.update(
+    { revoked: true, revokedAt: new Date() },
+    { where }
+  );
+  return { revokedCount: count };
+};
+
+export const listLoginHistoryService = async (userId, { page = 1, limit = 20, status } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+  const where = { userId };
+  if (status) where.status = status;
+  const { rows, count } = await LoginHistory.findAndCountAll({
+    where,
+    order: [["createdAt", "DESC"]],
+    limit: safeLimit,
+    offset: (safePage - 1) * safeLimit,
+  });
+  return {
+    items: rows,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: count,
+      totalPages: Math.ceil(count / safeLimit),
+    },
+  };
+};
+
+export const listActivityLogsService = async (userId, { page = 1, limit = 20 } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+  const { rows, count } = await ActivityLog.findAndCountAll({
+    where: { userId },
+    order: [["createdAt", "DESC"]],
+    limit: safeLimit,
+    offset: (safePage - 1) * safeLimit,
+  });
+  return {
+    items: rows,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: count,
+      totalPages: Math.ceil(count / safeLimit),
+    },
+  };
 };
 
 export const changePasswordService = async (userId, { currentPassword, newPassword }) => {
@@ -467,15 +714,24 @@ export const changePasswordService = async (userId, { currentPassword, newPasswo
 
   const ok = await comparePassword(currentPassword, user.hashedPassword);
   if (!ok) throw badRequest("Mat khau hien tai khong dung");
+  assertStrongPassword(newPassword, { email: user.email, username: user.username });
+
+  const reused = await comparePassword(newPassword, user.hashedPassword);
+  if (reused) throw badRequest("Mat khau moi khong duoc trung mat khau cu");
 
   await sequelize.transaction(async (dbTx) => {
     await user.update(
-      { hashedPassword: await hashPassword(newPassword) },
+      {
+        hashedPassword: await hashPassword(newPassword),
+        failedLoginCount: 0,
+        lockedUntil: null,
+        passwordChangedAt: new Date(),
+      },
       { transaction: dbTx }
     );
     // logout het thiet bi khac
     await RefreshToken.update(
-      { revoked: true },
+      { revoked: true, revokedAt: new Date() },
       { where: { userId, revoked: false }, transaction: dbTx }
     );
   });

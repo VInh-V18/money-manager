@@ -1,6 +1,6 @@
 import api from "@/lib/axios";
 import { API_BASE_URL } from "@/lib/env";
-import type { User } from "@/types";
+import type { ActivityLog, AuthSession, LoginHistory, PaginatedResult, User } from "@/types";
 
 export type OAuthProvider = "google" | "facebook" | "github";
 
@@ -51,4 +51,23 @@ export const authService = {
       .post("/auth/avatar", fd, { headers: { "Content-Type": "multipart/form-data" } })
       .then((r) => r.data.data as { avatarUrl: string });
   },
+
+  sessions: () =>
+    api.get("/auth/sessions").then((r) => r.data.data.items as AuthSession[]),
+
+  revokeSession: (id: number) =>
+    api.delete(`/auth/sessions/${id}`).then((r) => r.data.data as { revokedCurrent: boolean }),
+
+  revokeOtherSessions: () =>
+    api.delete("/auth/sessions/others").then((r) => r.data.data as { revokedCount: number }),
+
+  loginHistory: (page = 1, limit = 10, status?: LoginHistory["status"]) =>
+    api
+      .get("/auth/login-history", { params: { page, limit, status } })
+      .then((r) => r.data.data as PaginatedResult<LoginHistory>),
+
+  activityLogs: (page = 1, limit = 10) =>
+    api
+      .get("/auth/activity-logs", { params: { page, limit } })
+      .then((r) => r.data.data as PaginatedResult<ActivityLog>),
 };

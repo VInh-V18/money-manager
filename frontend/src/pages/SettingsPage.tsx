@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Camera, Sun, Moon } from "lucide-react";
+import { Camera, History, LogOut, MonitorSmartphone, Moon, ShieldCheck, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import { getErrorMessage } from "@/lib/axios";
 import { getBackendAssetUrl } from "@/lib/env";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
+import type { ActivityLog, AuthSession, LoginHistory } from "@/types";
 
 const profileSchema = z.object({
   displayName: z.string().min(1),
@@ -25,7 +26,13 @@ type ProfileForm = z.infer<typeof profileSchema>;
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(6, "Mật khẩu mới tối thiểu 6 ký tự"),
+  newPassword: z
+    .string()
+    .min(8, "Mật khẩu mới tối thiểu 8 ký tự")
+    .regex(/[a-z]/, "Cần có chữ thường")
+    .regex(/[A-Z]/, "Cần có chữ hoa")
+    .regex(/\d/, "Cần có số")
+    .regex(/[^A-Za-z0-9]/, "Cần có ký tự đặc biệt"),
 });
 type PasswordForm = z.infer<typeof passwordSchema>;
 
@@ -36,6 +43,10 @@ export default function SettingsPage() {
   const setTheme = useThemeStore((s) => s.setTheme);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [sessions, setSessions] = useState<AuthSession[]>([]);
+  const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [securityLoading, setSecurityLoading] = useState(false);
 
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -55,6 +66,28 @@ export default function SettingsPage() {
       });
     }
   }, [user, profileForm]);
+
+  const loadSecurity = async () => {
+    try {
+      setSecurityLoading(true);
+      const [sessionItems, history, activities] = await Promise.all([
+        authService.sessions(),
+        authService.loginHistory(1, 8),
+        authService.activityLogs(1, 8),
+      ]);
+      setSessions(sessionItems);
+      setLoginHistory(history.items);
+      setActivityLogs(activities.items);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Không tải được thông tin bảo mật"));
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) void loadSecurity();
+  }, [user]);
 
   const saveProfile = async (data: ProfileForm) => {
     try {
@@ -93,6 +126,30 @@ export default function SettingsPage() {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const revokeSession = async (session: AuthSession) => {
+    try {
+      const data = await authService.revokeSession(session.id);
+      toast.success("Đã đăng xuất thiết bị");
+      if (data.revokedCurrent) {
+        await useAuthStore.getState().signOut();
+        return;
+      }
+      await loadSecurity();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
+  const revokeOthers = async () => {
+    try {
+      const data = await authService.revokeOtherSessions();
+      toast.success(`Đã đăng xuất ${data.revokedCount} thiết bị khác`);
+      await loadSecurity();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -211,6 +268,9 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label>Mật khẩu mới</Label>
                   <Input type="password" {...passwordForm.register("newPassword")} />
+                  <p className="text-xs text-muted-foreground">
+                    Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.
+                  </p>
                   {passwordForm.formState.errors.newPassword && (
                     <p className="text-xs text-destructive">{passwordForm.formState.errors.newPassword.message}</p>
                   )}
@@ -223,6 +283,116 @@ export default function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MonitorSmartphone className="size-5" />
+              Thiết bị đang đăng nhập
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={revokeOthers} disabled={securityLoading || sessions.length <= 1}>
+                <LogOut className="size-4" />
+                Đăng xuất thiết bị khác
+              </Button>
+            </div>
+            {sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có dữ liệu phiên đăng nhập.</p>
+            ) : (
+              <div className="space-y-2">
+                {sessions.map((session) => (
+                  <div key={session.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {session.deviceName || "Thiết bị"} · {session.browser || "Unknown"}
+                          {session.isCurrent && (
+                            <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">Hiện tại</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {session.os || "Unknown OS"} · {session.ipAddress || "Không rõ IP"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Hoạt động cuối: {formatDateTime(session.lastActiveAt || session.createdAt)}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={session.isCurrent ? "outline" : "destructive"}
+                        onClick={() => revokeSession(session)}
+                      >
+                        Đăng xuất
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="size-5" />
+              Lịch sử đăng nhập
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {loginHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có lịch sử đăng nhập.</p>
+            ) : (
+              loginHistory.map((item) => (
+                <div key={item.id} className="flex items-start gap-3 rounded-lg border p-3">
+                  <ShieldCheck className={cn(
+                    "mt-0.5 size-4",
+                    item.status.includes("SUCCESS") ? "text-success" : "text-destructive"
+                  )} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{item.status}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.browser || "Unknown"} · {item.os || "Unknown"} · {item.ipAddress || "Không rõ IP"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDateTime(item.createdAt)}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="size-5" />
+            Nhật ký hoạt động gần đây
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {activityLogs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Chưa có hoạt động nào được ghi nhận.</p>
+          ) : (
+            activityLogs.map((item) => (
+              <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    {item.action} · {item.entityType}
+                    {item.entityId ? <span className="text-muted-foreground"> #{item.entityId}</span> : null}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.ipAddress || "Không rõ IP"} · {formatDateTime(item.createdAt)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

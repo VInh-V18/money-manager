@@ -1,6 +1,6 @@
 import api from "@/lib/axios";
 import { notifyWalletsChanged } from "@/lib/realtime";
-import type { Wallet, Category, PaginatedResult, Transaction } from "@/types";
+import type { Wallet, Category, PaginatedResult, Transaction, WalletBalanceHistory } from "@/types";
 
 export const walletService = {
   list: () =>
@@ -45,6 +45,11 @@ export const walletService = {
     api
       .get(`/wallets/${id}/history`, { params: { page, limit } })
       .then((r) => r.data.data as PaginatedResult<Transaction>),
+
+  balanceHistory: (id: number, page = 1, limit = 20) =>
+    api
+      .get(`/wallets/${id}/balance-history`, { params: { page, limit } })
+      .then((r) => r.data.data as PaginatedResult<WalletBalanceHistory>),
 };
 
 export const categoryService = {

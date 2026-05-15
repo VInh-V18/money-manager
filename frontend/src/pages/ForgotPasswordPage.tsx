@@ -64,8 +64,14 @@ export default function ForgotPasswordPage() {
 
   const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error("Mật khẩu tối thiểu 6 ký tự");
+    if (
+      newPassword.length < 8 ||
+      !/[a-z]/.test(newPassword) ||
+      !/[A-Z]/.test(newPassword) ||
+      !/\d/.test(newPassword) ||
+      !/[^A-Za-z0-9]/.test(newPassword)
+    ) {
+      toast.error("Mật khẩu cần tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt");
       return;
     }
     setLoading(true);
@@ -142,9 +148,12 @@ export default function ForgotPasswordPage() {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={6}
+                  minLength={8}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.
+                </p>
               </div>
               <Button type="submit" className="w-full" loading={loading}>
                 Đặt lại mật khẩu

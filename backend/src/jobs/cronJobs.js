@@ -3,7 +3,7 @@ import { Op } from "sequelize";
 import { generateDueFixedExpenses } from "../services/fixedExpenseService.js";
 import { calculateBudgetsSummary } from "../services/budgetService.js";
 import { createNotification } from "../services/notificationService.js";
-import { Budget, Debt, User } from "../models/index.js";
+import { Budget, Debt, Otp, RefreshToken, User } from "../models/index.js";
 import { formatDate, today } from "../utils/date.js";
 
 /**
@@ -112,6 +112,36 @@ const debtOverdueJob = async () => {
 };
 
 /**
+ * Job 4: Don dep du lieu bao mat het han - chay 2h moi ngay
+ */
+const securityCleanupJob = async () => {
+  console.log("[CRON] Chay job: don dep OTP/session het han...");
+  try {
+    const now = new Date();
+    const deletedOtp = await Otp.destroy({
+      where: {
+        [Op.or]: [
+          { expiresAt: { [Op.lt]: now } },
+          { used: true, createdAt: { [Op.lt]: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
+        ],
+      },
+    });
+    const [revokedSessions] = await RefreshToken.update(
+      { revoked: true, revokedAt: now },
+      {
+        where: {
+          revoked: false,
+          expiresAt: { [Op.lt]: now },
+        },
+      }
+    );
+    console.log(`[CRON] Done: xoa ${deletedOtp} OTP, revoke ${revokedSessions} session het han`);
+  } catch (err) {
+    console.error("[CRON] Loi job don dep bao mat:", err.message);
+  }
+};
+
+/**
  * Khoi tao tat ca cron job
  */
 export const initCronJobs = () => {
@@ -136,8 +166,15 @@ export const initCronJobs = () => {
     { timezone: "Asia/Ho_Chi_Minh" }
   );
 
-  console.log("✓ Cron jobs da khoi tao (3 jobs)");
+  // 2h00: don dep OTP/session het han
+  cron.schedule(
+    "0 2 * * *",
+    securityCleanupJob,
+    { timezone: "Asia/Ho_Chi_Minh" }
+  );
+
+  console.log("✓ Cron jobs da khoi tao (4 jobs)");
 };
 
 // Export tung job rieng de co the chay tay khi can
-export { fixedExpenseJob, budgetWarningJob, debtOverdueJob };
+export { fixedExpenseJob, budgetWarningJob, debtOverdueJob, securityCleanupJob };

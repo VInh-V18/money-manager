@@ -13,6 +13,7 @@ import {
   updateTransactionWithBalance,
   deleteTransactionWithBalance,
 } from "../services/transactionService.js";
+import { writeActivityLog } from "../services/activityLogService.js";
 
 // ===== Liet ke voi filter + pagination =====
 export const listTransactions = asyncHandler(async (req, res) => {
@@ -142,9 +143,19 @@ export const createTransaction = asyncHandler(async (req, res) => {
   }
 
   const tx = await sequelize.transaction(async (dbTx) => {
-    return createTransactionWithBalance(req.user.id, data, dbTx, {
+    const createdTx = await createTransactionWithBalance(req.user.id, data, dbTx, {
       allowNegative,
     });
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "create",
+      entityType: "transaction",
+      entityId: createdTx.id,
+      payload: { newValue: createdTx.toJSON() },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
+    return createdTx;
   });
 
   // load lai voi association de tra ve frontend
@@ -177,7 +188,17 @@ export const updateTransaction = asyncHandler(async (req, res) => {
   }
 
   await sequelize.transaction(async (dbTx) => {
+    const oldValue = tx.toJSON();
     await updateTransactionWithBalance(tx, data, dbTx, { allowNegative });
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "update",
+      entityType: "transaction",
+      entityId: tx.id,
+      payload: { oldValue, newValue: tx.toJSON() },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
   });
 
   const full = await Transaction.findByPk(tx.id, {
@@ -193,7 +214,17 @@ export const deleteTransaction = asyncHandler(async (req, res) => {
   if (tx.userId !== req.user.id) throw forbiddenError();
 
   await sequelize.transaction(async (dbTx) => {
+    const oldValue = tx.toJSON();
     await deleteTransactionWithBalance(tx, dbTx);
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "delete",
+      entityType: "transaction",
+      entityId: tx.id,
+      payload: { oldValue },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
   });
   return ok(res, null, "Da xoa giao dich va hoan tac so du");
 });
@@ -215,7 +246,17 @@ export const deleteTransactionsBulk = asyncHandler(async (req, res) => {
 
   await sequelize.transaction(async (dbTx) => {
     for (const tx of transactions) {
+      const oldValue = tx.toJSON();
       await deleteTransactionWithBalance(tx, dbTx);
+      await writeActivityLog({
+        userId: req.user.id,
+        action: "delete",
+        entityType: "transaction",
+        entityId: tx.id,
+        payload: { oldValue, bulk: true },
+        ipAddress: req.ip,
+        transaction: dbTx,
+      });
     }
   });
 

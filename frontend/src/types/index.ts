@@ -33,6 +33,43 @@ export interface User {
   createdAt: string;
 }
 
+export interface AuthSession {
+  id: number;
+  deviceName: string | null;
+  browser: string | null;
+  os: string | null;
+  ipAddress: string | null;
+  lastActiveAt: string | null;
+  expiresAt: string;
+  createdAt: string;
+  isCurrent: boolean;
+}
+
+export interface LoginHistory {
+  id: number;
+  userId: number | null;
+  email: string | null;
+  status: "SUCCESS" | "FAILED_PASSWORD" | "FAILED_USER" | "LOCKED" | "OAUTH_SUCCESS" | "OAUTH_FAILED";
+  reason: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  deviceName: string | null;
+  browser: string | null;
+  os: string | null;
+  createdAt: string;
+}
+
+export interface ActivityLog {
+  id: number;
+  userId: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  payload: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
 // ===== Wallet =====
 export type WalletType =
   | "cash"
@@ -60,6 +97,19 @@ export interface Wallet {
 
 export interface WalletWithTransactions extends Wallet {
   Transactions?: Transaction[];
+}
+
+export interface WalletBalanceHistory {
+  id: number;
+  userId: number;
+  walletId: number;
+  beforeBalance: string | number;
+  amountChanged: string | number;
+  afterBalance: string | number;
+  reason: string;
+  referenceType: string | null;
+  referenceId: number | null;
+  createdAt: string;
 }
 
 // ===== Category =====
