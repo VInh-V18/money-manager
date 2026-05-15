@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { Plus, Pencil, Trash2, Filter, X, Search, ListOrdered, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Bookmark, Save, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, Filter, X, Search, ListOrdered, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Bookmark, Save, RotateCcw, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { TransactionFormDialog } from "@/components/transaction/TransactionFormD
 import { transactionService, type ListTxQuery } from "@/services/transactionService";
 import { walletService, categoryService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
+import { getBackendAssetUrl } from "@/lib/env";
 import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Transaction, Wallet, Category, Pagination } from "@/types";
@@ -509,6 +510,17 @@ export default function TransactionPage() {
                       )}
                       {tx.subType !== "regular" && tx.subType && (
                         <Badge variant="outline" className="text-[10px] py-0">{tx.subType}</Badge>
+                      )}
+                      {tx.receiptUrl && (
+                        <a
+                          href={getBackendAssetUrl(tx.receiptUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-foreground hover:bg-accent"
+                        >
+                          <Receipt className="size-3" />
+                          Hóa đơn
+                        </a>
                       )}
                     </div>
                   </div>
