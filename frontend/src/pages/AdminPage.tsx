@@ -4,6 +4,7 @@ import { Activity, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/common/PageHeader";
 import { adminService, type AdminDashboard } from "@/services/adminService";
@@ -31,8 +32,15 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState<User["role"] | "all">("all");
   const [feedbackStatus, setFeedbackStatus] = useState<Feedback["status"] | "all">("all");
   const [loading, setLoading] = useState(true);
+
+  const loadUsers = async (q = userSearch, role = userRoleFilter) => {
+    const data = await adminService.users(1, 12, q.trim(), role === "all" ? "" : role);
+    setUsers(data.items);
+  };
 
   const loadFeedback = async (status = feedbackStatus) => {
     const data = await adminService.feedback(1, 12);
@@ -111,13 +119,48 @@ export default function AdminPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="size-5" />
-                  User gan day
-                </CardTitle>
+                <div className="space-y-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="size-5" />
+                    User gan day
+                  </CardTitle>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      value={userSearch}
+                      onChange={(event) => setUserSearch(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") void loadUsers();
+                      }}
+                      placeholder="Tim email, username, ten"
+                    />
+                    <Select
+                      value={userRoleFilter}
+                      onValueChange={(value) => {
+                        const role = value as User["role"] | "all";
+                        setUserRoleFilter(role);
+                        void loadUsers(userSearch, role);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tat ca role</SelectItem>
+                        {USER_ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>{role}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" onClick={() => loadUsers()} className="shrink-0">
+                      Tim
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {users.map((item) => (
+                {users.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Khong tim thay user.</p>
+                ) : users.map((item) => (
                   <div key={item.id} className="rounded-lg border p-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">

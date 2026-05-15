@@ -13,9 +13,9 @@ export interface AdminDashboard {
 export const adminService = {
   dashboard: () => api.get("/admin/dashboard").then((r) => r.data.data as AdminDashboard),
 
-  users: (page = 1, limit = 20) =>
+  users: (page = 1, limit = 20, q = "", role = "") =>
     api
-      .get("/admin/users", { params: { page, limit } })
+      .get("/admin/users", { params: { page, limit, q: q || undefined, role: role || undefined } })
       .then((r) => r.data.data as PaginatedResult<User>),
 
   updateUserRole: (id: number, role: User["role"]) =>
