@@ -16,6 +16,7 @@ import NotificationModel from "./Notification.js";
 import ActivityLogModel from "./ActivityLog.js";
 import LoginHistoryModel from "./LoginHistory.js";
 import WalletBalanceHistoryModel from "./WalletBalanceHistory.js";
+import FeedbackModel from "./Feedback.js";
 
 // 1. khoi tao tat ca model
 const User = UserModel(sequelize);
@@ -34,6 +35,7 @@ const Notification = NotificationModel(sequelize);
 const ActivityLog = ActivityLogModel(sequelize);
 const LoginHistory = LoginHistoryModel(sequelize);
 const WalletBalanceHistory = WalletBalanceHistoryModel(sequelize);
+const Feedback = FeedbackModel(sequelize);
 
 // 2. dinh nghia quan he
 
@@ -82,6 +84,9 @@ LoginHistory.belongsTo(User, { foreignKey: "userId" });
 
 User.hasMany(WalletBalanceHistory, { foreignKey: "userId", onDelete: "CASCADE" });
 WalletBalanceHistory.belongsTo(User, { foreignKey: "userId" });
+
+User.hasMany(Feedback, { foreignKey: "userId", onDelete: "CASCADE" });
+Feedback.belongsTo(User, { foreignKey: "userId" });
 
 // Category - cay cha con (self reference)
 Category.hasMany(Category, { foreignKey: "parentId", as: "children" });
@@ -143,6 +148,7 @@ export {
   ActivityLog,
   LoginHistory,
   WalletBalanceHistory,
+  Feedback,
 };
 
 export default {
@@ -163,4 +169,5 @@ export default {
   ActivityLog,
   LoginHistory,
   WalletBalanceHistory,
+  Feedback,
 };

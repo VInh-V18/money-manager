@@ -11,6 +11,7 @@ import {
   Zap,
   BarChart3,
   Bell,
+  MessageSquarePlus,
   Settings,
   TrendingUp,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { to: "/templates", icon: Zap, label: "Mẫu chi nhanh" },
   { to: "/reports", icon: BarChart3, label: "Báo cáo" },
   { to: "/notifications", icon: Bell, label: "Thông báo" },
+  { to: "/feedback", icon: MessageSquarePlus, label: "Góp ý" },
 ];
 
 interface SidebarProps {

@@ -16,6 +16,8 @@ import categoryRoute from "./routes/categoryRoute.js";
 import transactionRoute from "./routes/transactionRoute.js";
 import reportRoute from "./routes/reportRoute.js";
 import aiRoute from "./routes/aiRoute.js";
+import feedbackRoute from "./routes/feedbackRoute.js";
+import { openApiDocument } from "./docs/openapi.js";
 import {
   budgetRouter,
   fixedRouter,
@@ -63,6 +65,9 @@ app.get("/api/health", (req, res) => {
     data: { status: "ok", uptime: process.uptime(), env: env.NODE_ENV },
   });
 });
+app.get("/api/docs/openapi.json", (req, res) => {
+  res.json(openApiDocument);
+});
 
 // ===== Routes =====
 app.use("/api/auth", authRoute);
@@ -77,6 +82,7 @@ app.use("/api/templates", templateRouter);
 app.use("/api/notifications", notifRouter);
 app.use("/api/reports", reportRoute);
 app.use("/api/ai", aiRoute);
+app.use("/api/feedback", feedbackRoute);
 
 app.get("/api", (req, res) => {
   res.json({
@@ -95,6 +101,8 @@ app.get("/api", (req, res) => {
       notifications: "/api/notifications/*",
       reports: "/api/reports/*",
       ai: "/api/ai/*",
+      feedback: "/api/feedback/*",
+      docs: "/api/docs/openapi.json",
     },
   });
 });

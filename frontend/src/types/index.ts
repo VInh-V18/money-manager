@@ -70,6 +70,16 @@ export interface ActivityLog {
   createdAt: string;
 }
 
+export interface Feedback {
+  id: number;
+  userId: number;
+  type: "feedback" | "bug" | "feature_request";
+  title: string;
+  message: string;
+  status: "open" | "reviewing" | "resolved" | "closed";
+  createdAt: string;
+}
+
 // ===== Wallet =====
 export type WalletType =
   | "cash"
