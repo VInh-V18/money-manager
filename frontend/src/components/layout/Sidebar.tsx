@@ -12,10 +12,12 @@ import {
   BarChart3,
   Bell,
   MessageSquarePlus,
+  Shield,
   Settings,
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Tổng quan", end: true },
@@ -38,6 +40,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const role = useAuthStore((state) => state.user?.role);
+  const canOpenAdmin = role && ["ADMIN", "SUPER_ADMIN", "SUPPORT", "AUDITOR"].includes(role);
+
   return (
     <>
       {open && (
@@ -90,6 +95,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </ul>
 
           <div className="mt-6 pt-6 border-t border-sidebar-border">
+            {canOpenAdmin && (
+              <NavLink
+                to="/admin"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn(
+                    "mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/60"
+                  )
+                }
+              >
+                <Shield className="size-4" />
+                Admin
+              </NavLink>
+            )}
             <NavLink
               to="/settings"
               onClick={onClose}

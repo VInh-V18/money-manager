@@ -17,6 +17,7 @@ import transactionRoute from "./routes/transactionRoute.js";
 import reportRoute from "./routes/reportRoute.js";
 import aiRoute from "./routes/aiRoute.js";
 import feedbackRoute from "./routes/feedbackRoute.js";
+import adminRoute from "./routes/adminRoute.js";
 import { openApiDocument } from "./docs/openapi.js";
 import {
   budgetRouter,
@@ -83,6 +84,7 @@ app.use("/api/notifications", notifRouter);
 app.use("/api/reports", reportRoute);
 app.use("/api/ai", aiRoute);
 app.use("/api/feedback", feedbackRoute);
+app.use("/api/admin", adminRoute);
 
 app.get("/api", (req, res) => {
   res.json({
@@ -102,6 +104,7 @@ app.get("/api", (req, res) => {
       reports: "/api/reports/*",
       ai: "/api/ai/*",
       feedback: "/api/feedback/*",
+      admin: "/api/admin/*",
       docs: "/api/docs/openapi.json",
     },
   });

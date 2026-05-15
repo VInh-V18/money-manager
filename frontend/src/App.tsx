@@ -24,6 +24,7 @@ const ReportPage = lazy(() => import("./pages/ReportPage"));
 const NotificationPage = lazy(() => import("./pages/NotificationPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
 
 const PageLoader = () => (
   <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -59,6 +60,7 @@ function App() {
                 <Route path="/ai" element={<Navigate to="/" replace />} />
                 <Route path="/notifications" element={<NotificationPage />} />
                 <Route path="/feedback" element={<FeedbackPage />} />
+                <Route path="/admin" element={<AdminPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
             </Route>

@@ -14,6 +14,11 @@ export default (sequelize) => {
       bio: { type: DataTypes.STRING(500), allowNull: true },
       phone: { type: DataTypes.STRING(20), allowNull: true, unique: true },
       isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
+      role: {
+        type: DataTypes.ENUM("USER", "ADMIN", "SUPER_ADMIN", "PREMIUM_USER", "SUPPORT", "AUDITOR"),
+        allowNull: false,
+        defaultValue: "USER",
+      },
       failedLoginCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
       lockedUntil: { type: DataTypes.DATE, allowNull: true },
       passwordChangedAt: { type: DataTypes.DATE, allowNull: true },
@@ -24,7 +29,7 @@ export default (sequelize) => {
     {
       tableName: "users",
       timestamps: true,
-      indexes: [{ fields: ["email"] }, { fields: ["username"] }],
+      indexes: [{ fields: ["email"] }, { fields: ["username"] }, { fields: ["role"] }],
     }
   );
 

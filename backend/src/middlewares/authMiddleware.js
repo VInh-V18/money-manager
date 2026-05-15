@@ -27,6 +27,14 @@ export const protectedRoute = async (req, res, next) => {
   }
 };
 
+export const requireAdmin = (req, res, next) => {
+  const allowed = new Set(["ADMIN", "SUPER_ADMIN", "SUPPORT", "AUDITOR"]);
+  if (!req.user || !allowed.has(req.user.role)) {
+    return res.status(403).json({ success: false, message: "Khong co quyen admin" });
+  }
+  next();
+};
+
 /**
  * Middleware bao dam resource thuoc ve user hien tai.
  * Dung sau protectedRoute. Nhan ten field trong req.params (mac dinh "id")

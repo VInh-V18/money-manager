@@ -28,6 +28,7 @@ export interface User {
   bio: string | null;
   phone: string | null;
   isVerified: boolean;
+  role: "USER" | "ADMIN" | "SUPER_ADMIN" | "PREMIUM_USER" | "SUPPORT" | "AUDITOR";
   defaultCurrency: string;
   timezone: string;
   createdAt: string;
