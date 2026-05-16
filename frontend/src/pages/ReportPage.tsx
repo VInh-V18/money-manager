@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { Download, FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { DatabaseBackup, FileDown, FileSpreadsheet, FileText, FileUp } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -17,12 +17,14 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { reportService, downloadBlob } from "@/services/reportService";
 import { getErrorMessage } from "@/lib/axios";
+import { onTransactionsChanged } from "@/lib/realtime";
 import { formatCurrency, toISODate } from "@/lib/utils";
-import type { RangeReport, DailyStat } from "@/types";
+import type { ForecastData, MonthlyComparison, RangeReport, DailyStat, WeeklyStat } from "@/types";
 
 const PRESETS = [
   { label: "Hôm nay", days: 0 },
@@ -31,6 +33,15 @@ const PRESETS = [
   { label: "Tháng này", monthly: true },
 ];
 
+const healthMeta = {
+  good: { label: "Tốt", color: "bg-success", text: "text-success" },
+  fair: { label: "Ổn", color: "bg-primary", text: "text-primary" },
+  watch: { label: "Cần chú ý", color: "bg-warning", text: "text-warning" },
+  risk: { label: "Rủi ro", color: "bg-destructive", text: "text-destructive" },
+} as const;
+
+type ImportErrorItem = { line: number; reason: string };
+
 export default function ReportPage() {
   const [range, setRange] = useState({
     from: toISODate(new Date(new Date().setDate(new Date().getDate() - 29))),
@@ -38,26 +49,42 @@ export default function ReportPage() {
   });
   const [report, setReport] = useState<RangeReport | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
+  const [comparison, setComparison] = useState<MonthlyComparison | null>(null);
+  const [forecast, setForecast] = useState<ForecastData | null>(null);
+  const [importErrors, setImportErrors] = useState<ImportErrorItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [exporting, setExporting] = useState<"excel" | "csv" | "pdf" | "backup" | "restore" | "csv-import" | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
-      const [r, d] = await Promise.all([
+      const [r, d, w, c, f] = await Promise.all([
         reportService.range(range.from, range.to),
         reportService.dailyStats(range.from, range.to),
+        reportService.weeklyStats(range.from, range.to),
+        reportService.compareMonths(),
+        reportService.forecast(),
       ]);
       setReport(r);
       setDailyStats(d.items);
+      setWeeklyStats(w.items);
+      setComparison(c);
+      setForecast(f);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [range]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => onTransactionsChanged(() => {
+    void load({ silent: true });
+  }), [load]);
 
   const setPreset = (p: typeof PRESETS[number]) => {
     const today = new Date();
@@ -72,18 +99,72 @@ export default function ReportPage() {
     }
   };
 
-  const handleExport = async (kind: "excel" | "pdf") => {
+  const handleExport = async (kind: "excel" | "csv" | "pdf") => {
     setExporting(kind);
     try {
-      const fn = kind === "excel" ? reportService.exportExcel : reportService.exportPdf;
-      const ext = kind === "excel" ? "xlsx" : "pdf";
+      const fn =
+        kind === "excel"
+          ? reportService.exportExcel
+          : kind === "csv"
+            ? reportService.exportCsv
+            : reportService.exportPdf;
+      const ext = kind === "excel" ? "xlsx" : kind;
       const res = await fn(range.from, range.to);
       downloadBlob(new Blob([res.data]), `bao-cao-${range.from}_${range.to}.${ext}`);
-      toast.success(`Đã tải ${kind === "excel" ? "Excel" : "PDF"}`);
+      toast.success(`Đã tải ${kind.toUpperCase()}`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setExporting(null);
+    }
+  };
+
+  const handleBackup = async () => {
+    setExporting("backup");
+    try {
+      const res = await reportService.exportBackupJson();
+      downloadBlob(new Blob([res.data], { type: "application/json" }), `money-manager-backup-${toISODate(new Date())}.json`);
+      toast.success("Đã tải backup JSON");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleRestoreFile = async (file?: File) => {
+    if (!file) return;
+    if (!window.confirm("Restore sẽ nhập thêm dữ liệu từ file backup vào tài khoản hiện tại. Tiếp tục?")) {
+      return;
+    }
+    setExporting("restore");
+    try {
+      const result = await reportService.restoreBackupJson(file);
+      toast.success(
+        `Đã restore: ${result.wallets || 0} ví, ${result.categories || 0} danh mục, ${result.transactions || 0} giao dịch`
+      );
+      void load({ silent: true });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExporting(null);
+      if (restoreInputRef.current) restoreInputRef.current.value = "";
+    }
+  };
+
+  const handleCsvFile = async (file?: File) => {
+    if (!file) return;
+    setExporting("csv-import");
+    try {
+      const result = await reportService.importTransactionsCsv(file);
+      setImportErrors(result.errors || []);
+      toast.success(`Đã import ${result.imported} giao dịch, lỗi ${result.failed}`);
+      void load({ silent: true });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExporting(null);
+      if (csvInputRef.current) csvInputRef.current.value = "";
     }
   };
 
@@ -115,13 +196,39 @@ export default function ReportPage() {
               <Label>Đến ngày</Label>
               <Input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => handleExport("excel")} loading={exporting === "excel"}>
                 <FileSpreadsheet className="size-4" /> Excel
+              </Button>
+              <Button variant="outline" onClick={() => handleExport("csv")} loading={exporting === "csv"}>
+                <FileDown className="size-4" /> CSV
+              </Button>
+              <Button variant="outline" onClick={() => csvInputRef.current?.click()} loading={exporting === "csv-import"}>
+                <FileUp className="size-4" /> Import CSV
               </Button>
               <Button variant="outline" onClick={() => handleExport("pdf")} loading={exporting === "pdf"}>
                 <FileText className="size-4" /> PDF
               </Button>
+              <Button variant="outline" onClick={handleBackup} loading={exporting === "backup"}>
+                <DatabaseBackup className="size-4" /> Backup
+              </Button>
+              <Button variant="outline" onClick={() => restoreInputRef.current?.click()} loading={exporting === "restore"}>
+                <FileUp className="size-4" /> Restore
+              </Button>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept="text/csv,.csv"
+                className="hidden"
+                onChange={(event) => void handleCsvFile(event.target.files?.[0])}
+              />
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => void handleRestoreFile(event.target.files?.[0])}
+              />
             </div>
           </div>
 
@@ -134,6 +241,25 @@ export default function ReportPage() {
           </div>
         </CardContent>
       </Card>
+
+      {importErrors.length > 0 && (
+        <Card className="mb-6 border-warning/40">
+          <CardHeader>
+            <CardTitle>Loi import CSV</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {importErrors.slice(0, 20).map((item) => (
+              <div key={`${item.line}-${item.reason}`} className="rounded-lg border px-3 py-2 text-sm">
+                <span className="font-medium">Dong {item.line}:</span>{" "}
+                <span className="text-muted-foreground">{item.reason}</span>
+              </div>
+            ))}
+            {importErrors.length > 20 && (
+              <p className="text-xs text-muted-foreground">Con {importErrors.length - 20} loi khac trong file.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {loading || !report ? (
         <Card><CardContent className="p-8">Đang tải báo cáo...</CardContent></Card>
@@ -168,6 +294,121 @@ export default function ReportPage() {
             </Card>
           </div>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Sức khỏe tài chính</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className={`text-4xl font-bold ${healthMeta[report.financialHealth.level].text}`}>
+                    {report.financialHealth.score}/100
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Trạng thái: {healthMeta[report.financialHealth.level].label}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                  <div>
+                    <p className="text-muted-foreground">Vượt ngân sách</p>
+                    <p className="font-semibold">{report.financialHealth.exceededBudgets}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Nợ quá hạn</p>
+                    <p className="font-semibold">{report.financialHealth.overdueDebts}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Ví thấp</p>
+                    <p className="font-semibold">{report.financialHealth.lowWallets}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Ví âm</p>
+                    <p className="font-semibold">{report.financialHealth.negativeWallets}</p>
+                  </div>
+                </div>
+              </div>
+              <Progress value={report.financialHealth.score} indicatorClassName={healthMeta[report.financialHealth.level].color} />
+              {report.financialHealth.suggestions.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {report.financialHealth.suggestions.map((item) => (
+                    <div key={item} className="rounded-lg border px-3 py-2 text-sm text-muted-foreground">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Không có cảnh báo lớn trong kỳ báo cáo này.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {comparison && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>So sanh thang nay</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Thu nhap thang nay</p>
+                      <p className="mt-1 text-xl font-semibold text-income">{formatCurrency(comparison.current.income)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {comparison.change.income >= 0 ? "+" : ""}{comparison.change.income}% so voi thang truoc
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Chi tieu thang nay</p>
+                      <p className="mt-1 text-xl font-semibold text-expense">{formatCurrency(comparison.current.expense)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {comparison.change.expense >= 0 ? "+" : ""}{comparison.change.expense}% so voi thang truoc
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg bg-muted p-3 text-sm">
+                      <p className="text-muted-foreground">Thang truoc thu</p>
+                      <p className="font-semibold">{formatCurrency(comparison.previous.income)}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted p-3 text-sm">
+                      <p className="text-muted-foreground">Thang truoc chi</p>
+                      <p className="font-semibold">{formatCurrency(comparison.previous.expense)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {forecast && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Du bao cuoi thang</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Chi trung binh/ngay</p>
+                      <p className="mt-1 text-xl font-semibold">{formatCurrency(forecast.avgDailyExpense)}</p>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-sm text-muted-foreground">Du bao chi ca thang</p>
+                      <p className="mt-1 text-xl font-semibold text-expense">{formatCurrency(forecast.projectedMonthExpense)}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-muted p-3 text-sm">
+                    <p className="text-muted-foreground">Du kien con lai cuoi thang</p>
+                    <p className={`text-lg font-semibold ${forecast.projectedRemainingByMonthEnd >= 0 ? "text-income" : "text-expense"}`}>
+                      {formatCurrency(forecast.projectedRemainingByMonthEnd)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Da qua {forecast.daysPassed} ngay, con {forecast.daysLeft} ngay trong thang.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
           {/* Daily bar chart */}
           <Card>
             <CardHeader>
@@ -196,6 +437,44 @@ export default function ReportPage() {
                     <Legend />
                     <Bar dataKey="income" name="Thu" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expense" name="Chi" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Dòng tiền theo tuần</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {weeklyStats.length === 0 ? (
+                <EmptyState title="Chưa có dữ liệu tuần" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={weeklyStats}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="weekStart" tickFormatter={(d) => d.slice(5)} fontSize={11} />
+                    <YAxis
+                      tickFormatter={(v) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(0)}tr` : v >= 1000 ? `${v / 1000}k` : v)}
+                      fontSize={11}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 8,
+                        backgroundColor: "hsl(var(--popover))",
+                        border: "1px solid hsl(var(--border))",
+                      }}
+                      labelFormatter={(_, payload) => {
+                        const item = payload?.[0]?.payload as WeeklyStat | undefined;
+                        return item ? `${item.weekStart} - ${item.weekEnd}` : "";
+                      }}
+                      formatter={(v: number) => formatCurrency(v)}
+                    />
+                    <Legend />
+                    <Bar dataKey="income" name="Thu" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expense" name="Chi" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="net" name="Còn lại" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

@@ -28,8 +28,57 @@ export interface User {
   bio: string | null;
   phone: string | null;
   isVerified: boolean;
+  role: "USER" | "ADMIN" | "SUPER_ADMIN" | "PREMIUM_USER" | "SUPPORT" | "AUDITOR";
   defaultCurrency: string;
   timezone: string;
+  createdAt: string;
+}
+
+export interface AuthSession {
+  id: number;
+  deviceName: string | null;
+  browser: string | null;
+  os: string | null;
+  ipAddress: string | null;
+  lastActiveAt: string | null;
+  expiresAt: string;
+  createdAt: string;
+  isCurrent: boolean;
+}
+
+export interface LoginHistory {
+  id: number;
+  userId: number | null;
+  email: string | null;
+  status: "SUCCESS" | "FAILED_PASSWORD" | "FAILED_USER" | "LOCKED" | "OAUTH_SUCCESS" | "OAUTH_FAILED";
+  reason: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  deviceName: string | null;
+  browser: string | null;
+  os: string | null;
+  createdAt: string;
+}
+
+export interface ActivityLog {
+  id: number;
+  userId: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  payload: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+  User?: Pick<User, "id" | "email" | "displayName">;
+}
+
+export interface Feedback {
+  id: number;
+  userId: number;
+  type: "feedback" | "bug" | "feature_request";
+  title: string;
+  message: string;
+  status: "open" | "reviewing" | "resolved" | "closed";
   createdAt: string;
 }
 
@@ -54,12 +103,27 @@ export interface Wallet {
   icon: string;
   note: string | null;
   isActive: boolean;
+  lowBalanceThreshold: string | number | null;
+  lowBalanceLastNotifiedAt: string | null;
   excludeFromTotal: boolean;
   createdAt: string;
 }
 
 export interface WalletWithTransactions extends Wallet {
   Transactions?: Transaction[];
+}
+
+export interface WalletBalanceHistory {
+  id: number;
+  userId: number;
+  walletId: number;
+  beforeBalance: string | number;
+  amountChanged: string | number;
+  afterBalance: string | number;
+  reason: string;
+  referenceType: string | null;
+  referenceId: number | null;
+  createdAt: string;
 }
 
 // ===== Category =====
@@ -106,9 +170,12 @@ export interface Transaction {
   transactionDate: string;
   transactionTime: string | null;
   receiptUrl: string | null;
+  idempotencyKey: string | null;
+  checksum: string | null;
   fixedExpenseId: number | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+  deletedAt?: string | null;
   Wallet?: Wallet;
   Category?: Category;
 }
@@ -207,6 +274,7 @@ export interface Debt {
   dueDate: string | null;
   status: "active" | "paid" | "overdue";
   note: string | null;
+  lastDueNotifiedDate: string | null;
   remaining?: number;
 }
 
@@ -255,7 +323,33 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface NotificationPreference {
+  id: number;
+  userId: number;
+  inAppEnabled: boolean;
+  emailEnabled: boolean;
+  remindLogEnabled: boolean;
+  remindLogTime: string;
+  lastRemindLogDate: string | null;
+  typePreferences: Record<NotificationType, boolean>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ===== Report =====
+export interface FinancialHealth {
+  score: number;
+  level: "good" | "fair" | "watch" | "risk";
+  totalBalance: number;
+  savingRate: number;
+  exceededBudgets: number;
+  warningBudgets: number;
+  overdueDebts: number;
+  lowWallets: number;
+  negativeWallets: number;
+  suggestions: string[];
+}
+
 export interface OverviewData {
   totalBalance: number;
   todayIncome: number;
@@ -266,6 +360,7 @@ export interface OverviewData {
   savingRate: number;
   daysLeftInMonth: number;
   suggestedDailySpend: number;
+  financialHealth: FinancialHealth;
   recentTransactions: Transaction[];
 }
 
@@ -278,6 +373,18 @@ export interface RangeReport {
     incomeCount: number;
     expenseCount: number;
     savingRate: number;
+  };
+  financialHealth: {
+    score: number;
+    level: "good" | "fair" | "watch" | "risk";
+    totalBalance: number;
+    savingRate: number;
+    exceededBudgets: number;
+    warningBudgets: number;
+    overdueDebts: number;
+    lowWallets: number;
+    negativeWallets: number;
+    suggestions: string[];
   };
   byCategory: Array<{
     categoryId: number;
@@ -293,4 +400,39 @@ export interface DailyStat {
   date: string;
   income: number;
   expense: number;
+}
+
+export interface WeeklyStat {
+  weekStart: string;
+  weekEnd: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+export interface MonthlyComparison {
+  current: {
+    income: number;
+    expense: number;
+    range: { from: string; to: string };
+  };
+  previous: {
+    income: number;
+    expense: number;
+    range: { from: string; to: string };
+  };
+  change: {
+    income: number;
+    expense: number;
+  };
+}
+
+export interface ForecastData {
+  monthExpenseSoFar: number;
+  monthIncomeSoFar: number;
+  avgDailyExpense: number;
+  daysPassed: number;
+  daysLeft: number;
+  projectedMonthExpense: number;
+  projectedRemainingByMonthEnd: number;
 }

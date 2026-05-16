@@ -20,7 +20,7 @@ export function ConfirmDialog({
   title = "Xác nhận hành động",
   description = "Bạn có chắc chắn muốn thực hiện?",
   confirmText = "Xác nhận",
-  cancelText = "Huỷ",
+  cancelText = "Hủy",
   variant = "destructive",
   loading,
   onConfirm,

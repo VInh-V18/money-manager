@@ -16,6 +16,7 @@ const schema = z.object({
   name: z.string().min(1, "Vui lòng nhập tên ví"),
   type: z.enum(["cash", "bank", "ewallet", "saving", "investment", "other"]),
   initialBalance: z.number().min(0, "Số dư không thể âm"),
+  lowBalanceThreshold: z.number().min(0).nullable().optional(),
   color: z.string(),
   icon: z.string(),
   note: z.string().optional(),
@@ -49,6 +50,7 @@ export function WalletFormDialog({ open, onClose, wallet, onSaved }: Props) {
       name: "",
       type: "cash",
       initialBalance: 0,
+      lowBalanceThreshold: null,
       color: COLORS[0],
       icon: ICONS[0],
       note: "",
@@ -61,12 +63,13 @@ export function WalletFormDialog({ open, onClose, wallet, onSaved }: Props) {
         name: wallet.name,
         type: wallet.type,
         initialBalance: Number(wallet.initialBalance),
+        lowBalanceThreshold: wallet.lowBalanceThreshold === null ? null : Number(wallet.lowBalanceThreshold),
         color: wallet.color,
         icon: wallet.icon,
         note: wallet.note || "",
       });
     } else {
-      reset({ name: "", type: "cash", initialBalance: 0, color: COLORS[0], icon: ICONS[0], note: "" });
+      reset({ name: "", type: "cash", initialBalance: 0, lowBalanceThreshold: null, color: COLORS[0], icon: ICONS[0], note: "" });
     }
   }, [wallet, reset, open]);
 
@@ -102,7 +105,7 @@ export function WalletFormDialog({ open, onClose, wallet, onSaved }: Props) {
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Loại ví</Label>
               <Controller
@@ -169,11 +172,29 @@ export function WalletFormDialog({ open, onClose, wallet, onSaved }: Props) {
 
           <div className="space-y-2">
             <Label>Ghi chú</Label>
-            <Textarea {...register("note")} placeholder="Tuỳ chọn" rows={2} />
+            <Textarea {...register("note")} placeholder="Tùy chọn" rows={2} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Ngưỡng cảnh báo số dư thấp</Label>
+            <Controller
+              control={control}
+              name="lowBalanceThreshold"
+              render={({ field }) => (
+                <CurrencyInput
+                  value={field.value || 0}
+                  onChange={(value) => field.onChange(value > 0 ? value : null)}
+                  placeholder="0"
+                />
+              )}
+            />
+            <p className="text-xs text-muted-foreground">
+              Để 0 nếu không muốn nhận cảnh báo số dư thấp cho ví này.
+            </p>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Huỷ</Button>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
             <Button type="submit" loading={isSubmitting}>
               {isEdit ? "Cập nhật" : "Tạo ví"}
             </Button>

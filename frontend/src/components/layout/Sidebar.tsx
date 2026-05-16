@@ -11,10 +11,13 @@ import {
   Zap,
   BarChart3,
   Bell,
+  MessageSquarePlus,
+  Shield,
   Settings,
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Tổng quan", end: true },
@@ -28,6 +31,7 @@ const NAV_ITEMS = [
   { to: "/templates", icon: Zap, label: "Mẫu chi nhanh" },
   { to: "/reports", icon: BarChart3, label: "Báo cáo" },
   { to: "/notifications", icon: Bell, label: "Thông báo" },
+  { to: "/feedback", icon: MessageSquarePlus, label: "Góp ý" },
 ];
 
 interface SidebarProps {
@@ -36,9 +40,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const role = useAuthStore((state) => state.user?.role);
+  const canOpenAdmin = role && ["ADMIN", "SUPER_ADMIN", "SUPPORT", "AUDITOR"].includes(role);
+
   return (
     <>
-      {/* mobile overlay */}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/50 lg:hidden"
@@ -52,7 +58,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-md">
             <TrendingUp className="size-5" />
@@ -62,7 +67,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="overflow-y-auto custom-scroll p-3 h-[calc(100vh-4rem)]">
           <ul className="space-y-1">
             {NAV_ITEMS.map((item) => {
@@ -91,6 +95,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </ul>
 
           <div className="mt-6 pt-6 border-t border-sidebar-border">
+            {canOpenAdmin && (
+              <NavLink
+                to="/admin"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn(
+                    "mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/60"
+                  )
+                }
+              >
+                <Shield className="size-4" />
+                Admin
+              </NavLink>
+            )}
             <NavLink
               to="/settings"
               onClick={onClose}

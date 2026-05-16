@@ -2,9 +2,12 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import morgan from "morgan";
 import path from "path";
+import fs from "fs";
 
 import env from "./config/env.js";
+import { logger, morganStream } from "./utils/logger.js";
 import { connectDB } from "./config/database.js";
 import { syncModels } from "./models/index.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware.js";
@@ -15,6 +18,10 @@ import walletRoute from "./routes/walletRoute.js";
 import categoryRoute from "./routes/categoryRoute.js";
 import transactionRoute from "./routes/transactionRoute.js";
 import reportRoute from "./routes/reportRoute.js";
+import aiRoute from "./routes/aiRoute.js";
+import feedbackRoute from "./routes/feedbackRoute.js";
+import adminRoute from "./routes/adminRoute.js";
+import { openApiDocument } from "./docs/openapi.js";
 import {
   budgetRouter,
   fixedRouter,
@@ -27,19 +34,36 @@ import {
 // cron
 import { initCronJobs } from "./jobs/cronJobs.js";
 
+// Dam bao thu muc logs ton tai
+const logsDir = path.resolve("logs");
+if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+
 const app = express();
+app.set("trust proxy", 1);
+
+const allowedOrigins = new Set([
+  ...env.CLIENT_URLS,
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
 
 // ===== Bao mat & middleware co ban =====
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked origin: ${origin}`));
+    },
     credentials: true,
   })
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev", { stream: morganStream }));
 
 app.use("/uploads", express.static(path.resolve(env.UPLOAD_DIR)));
 
@@ -49,6 +73,9 @@ app.get("/api/health", (req, res) => {
     success: true,
     data: { status: "ok", uptime: process.uptime(), env: env.NODE_ENV },
   });
+});
+app.get("/api/docs/openapi.json", (req, res) => {
+  res.json(openApiDocument);
 });
 
 // ===== Routes =====
@@ -63,6 +90,9 @@ app.use("/api/debts", debtRouter);
 app.use("/api/templates", templateRouter);
 app.use("/api/notifications", notifRouter);
 app.use("/api/reports", reportRoute);
+app.use("/api/ai", aiRoute);
+app.use("/api/feedback", feedbackRoute);
+app.use("/api/admin", adminRoute);
 
 app.get("/api", (req, res) => {
   res.json({
@@ -80,6 +110,10 @@ app.get("/api", (req, res) => {
       templates: "/api/templates/*",
       notifications: "/api/notifications/*",
       reports: "/api/reports/*",
+      ai: "/api/ai/*",
+      feedback: "/api/feedback/*",
+      admin: "/api/admin/*",
+      docs: "/api/docs/openapi.json",
     },
   });
 });
@@ -89,17 +123,19 @@ app.use(errorHandler);
 
 const start = async () => {
   await connectDB();
-  await syncModels({ alter: true });
+  await syncModels({
+    alter: env.NODE_ENV === "development" && env.DB_SYNC_ALTER !== "false",
+    force: env.DB_SYNC_FORCE === "true",
+  });
   initCronJobs();
   app.listen(env.PORT, () => {
-    console.log(`\n✓ Server chay tai http://localhost:${env.PORT}`);
-    console.log(`  Health check: http://localhost:${env.PORT}/api/health`);
-    console.log(`  API root: http://localhost:${env.PORT}/api\n`);
+    logger.info(`Server chay tai http://localhost:${env.PORT}`);
+    logger.info(`Health check: http://localhost:${env.PORT}/api/health`);
   });
 };
 
 start().catch((err) => {
-  console.error("✗ Khoi dong server that bai:", err);
+  logger.error("Khoi dong server that bai:", err);
   process.exit(1);
 });
 

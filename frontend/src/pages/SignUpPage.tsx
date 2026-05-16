@@ -9,10 +9,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuthStore } from "@/stores/useAuthStore";
 
 const schema = z.object({
-  username: z.string().min(3, "Tối thiểu 3 ký tự").regex(/^[a-zA-Z0-9_]+$/, "Chỉ chữ, số, gạch dưới"),
+  username: z.string().min(3, "Tối thiểu 3 ký tự").regex(/^[a-zA-Z0-9_]+$/, "Chỉ gồm chữ, số, gạch dưới"),
   email: z.string().email("Email không hợp lệ"),
   displayName: z.string().min(1, "Vui lòng nhập họ tên"),
-  password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự"),
+  password: z
+    .string()
+    .min(8, "Mật khẩu tối thiểu 8 ký tự")
+    .regex(/[a-z]/, "Cần có chữ thường")
+    .regex(/[A-Z]/, "Cần có chữ hoa")
+    .regex(/\d/, "Cần có số")
+    .regex(/[^A-Za-z0-9]/, "Cần có ký tự đặc biệt"),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -21,17 +27,17 @@ export default function SignUpPage() {
   const signUp = useAuthStore((s) => s.signUp);
   const loading = useAuthStore((s) => s.loading);
 
-  const { register, handleSubmit, formState: { errors }, getValues } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
   const onSubmit = async (data: FormData) => {
     const ok = await signUp(data);
-    if (ok) navigate(`/verify-email?email=${encodeURIComponent(getValues("email"))}`);
+    if (ok) navigate("/signin");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 p-4">
+    <div className="flex min-h-dvh items-start justify-center overflow-y-auto bg-gradient-to-br from-blue-50 via-background to-indigo-50 px-4 py-6 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 sm:items-center">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-md">
@@ -45,25 +51,36 @@ export default function SignUpPage() {
             <div className="space-y-2">
               <Label htmlFor="displayName">Họ tên</Label>
               <Input id="displayName" {...register("displayName")} placeholder="Nguyễn Văn A" />
-              {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.displayName?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input id="username" {...register("username")} placeholder="nguyenvana" />
-              {errors.username && <p className="text-xs text-destructive">{errors.username.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.username?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" {...register("email")} placeholder="email@example.com" />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.email?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
-              <Input id="password" type="password" {...register("password")} placeholder="••••••••" />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              <Input id="password" type="password" {...register("password")} placeholder="********" />
+              <p className="text-xs text-muted-foreground">
+                Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.
+              </p>
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.password?.message}
+              </p>
             </div>
 
             <Button type="submit" className="w-full" loading={loading}>

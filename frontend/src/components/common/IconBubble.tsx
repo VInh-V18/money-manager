@@ -1,5 +1,40 @@
-import * as Icons from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import {
+  Banknote,
+  Bike,
+  Book,
+  Briefcase,
+  Bus,
+  Car,
+  Circle,
+  Clock,
+  Coffee,
+  CreditCard,
+  CupSoda,
+  Folder,
+  Fuel,
+  Gift,
+  GraduationCap,
+  Heart,
+  HeartPulse,
+  Home,
+  Landmark,
+  Laptop,
+  Music,
+  PiggyBank,
+  Pizza,
+  Plane,
+  Rocket,
+  ShoppingBag,
+  ShoppingCart,
+  Smartphone,
+  Target,
+  TrendingUp,
+  Users,
+  Utensils,
+  Wallet,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -15,13 +50,45 @@ const sizeMap = {
   lg: "size-12 [&>svg]:size-6",
 };
 
-/** Bubble tròn chứa icon từ lucide. Nhận tên kebab-case (như backend lưu). */
+const ICONS: Record<string, LucideIcon> = {
+  banknote: Banknote,
+  bike: Bike,
+  book: Book,
+  briefcase: Briefcase,
+  bus: Bus,
+  car: Car,
+  circle: Circle,
+  clock: Clock,
+  coffee: Coffee,
+  "credit-card": CreditCard,
+  "cup-soda": CupSoda,
+  folder: Folder,
+  fuel: Fuel,
+  gift: Gift,
+  "graduation-cap": GraduationCap,
+  heart: Heart,
+  "heart-pulse": HeartPulse,
+  home: Home,
+  landmark: Landmark,
+  laptop: Laptop,
+  music: Music,
+  "piggy-bank": PiggyBank,
+  pizza: Pizza,
+  plane: Plane,
+  rocket: Rocket,
+  "shopping-bag": ShoppingBag,
+  "shopping-cart": ShoppingCart,
+  smartphone: Smartphone,
+  target: Target,
+  "trending-up": TrendingUp,
+  users: Users,
+  utensils: Utensils,
+  wallet: Wallet,
+  zap: Zap,
+};
+
 export function IconBubble({ icon, color, size = "md", className }: Props) {
-  const iconName = (icon || "circle")
-    .split("-")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join("");
-  const Cmp = ((Icons as unknown as Record<string, LucideIcon>)[iconName] || Icons.Circle) as LucideIcon;
+  const Cmp = ICONS[icon || "circle"] || Circle;
   const bg = color || "#6B7280";
 
   return (

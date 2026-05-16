@@ -2,8 +2,10 @@ import express from "express";
 import * as ctrl from "../controllers/transactionController.js";
 import { protectedRoute } from "../middlewares/authMiddleware.js";
 import { validate } from "../middlewares/validateMiddleware.js";
+import { uploadImage } from "../middlewares/uploadMiddleware.js";
 import {
   createTransactionSchema,
+  deleteTransactionsBulkSchema,
   updateTransactionSchema,
   listTransactionQuerySchema,
   createDailyWageSchema,
@@ -16,9 +18,12 @@ router.use(protectedRoute);
 // route co tham so cu the dat truoc /:id
 router.get("/recent", ctrl.getRecentTransactions);
 router.get("/search", ctrl.searchTransactions);
+router.get("/trash", ctrl.listDeletedTransactions);
 
 router.get("/", validate(listTransactionQuerySchema, "query"), ctrl.listTransactions);
 router.post("/", validate(createTransactionSchema), ctrl.createTransaction);
+router.post("/receipt", uploadImage.single("receipt"), ctrl.uploadTransactionReceipt);
+router.delete("/bulk", validate(deleteTransactionsBulkSchema), ctrl.deleteTransactionsBulk);
 
 // helper api thu nhap theo ngay/gio
 router.post(
@@ -33,6 +38,7 @@ router.post(
 );
 
 router.get("/:id", ctrl.getTransaction);
+router.post("/:id/restore", ctrl.restoreTransaction);
 router.put("/:id", validate(updateTransactionSchema), ctrl.updateTransaction);
 router.delete("/:id", ctrl.deleteTransaction);
 

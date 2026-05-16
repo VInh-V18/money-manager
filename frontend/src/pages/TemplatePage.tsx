@@ -145,7 +145,7 @@ export default function TemplatePage() {
     }
   };
 
-  const useTemplate = async (t: ExpenseTemplate) => {
+  const applyTemplate = async (t: ExpenseTemplate) => {
     setUsingId(t.id);
     try {
       await templateService.use(t.id, {});
@@ -164,7 +164,7 @@ export default function TemplatePage() {
     <div>
       <PageHeader
         title="Mẫu chi nhanh"
-        description="1 click để tạo giao dịch hay làm"
+        description="1 click để tạo giao dịch thường dùng"
         action={<Button onClick={() => openForm(null)}><Plus className="size-4" /> Thêm mẫu</Button>}
       />
 
@@ -210,7 +210,7 @@ export default function TemplatePage() {
                   <Button
                     size="sm"
                     className="col-span-2"
-                    onClick={() => useTemplate(t)}
+                    onClick={() => applyTemplate(t)}
                     loading={usingId === t.id}
                   >
                     <Zap className="size-4" /> Dùng
@@ -225,7 +225,7 @@ export default function TemplatePage() {
                   className="w-full mt-1 text-destructive hover:text-destructive"
                   onClick={() => setDeleting(t)}
                 >
-                  <Trash2 className="size-4" /> Xoá
+                  <Trash2 className="size-4" /> Xóa
                 </Button>
               </CardContent>
             </Card>
@@ -375,7 +375,7 @@ export default function TemplatePage() {
             />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -385,7 +385,7 @@ export default function TemplatePage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá mẫu?"
+        title="Xóa mẫu?"
         loading={delLoading}
         onConfirm={handleDelete}
       />

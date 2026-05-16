@@ -1,5 +1,8 @@
 import api from "@/lib/axios";
-import type { User } from "@/types";
+import { API_BASE_URL } from "@/lib/env";
+import type { ActivityLog, AuthSession, LoginHistory, PaginatedResult, User } from "@/types";
+
+export type OAuthProvider = "google" | "facebook" | "github";
 
 export const authService = {
   signUp: (data: { username: string; email: string; password: string; displayName: string }) =>
@@ -12,6 +15,8 @@ export const authService = {
 
   refresh: () => api.post("/auth/refresh").then((r) => r.data.data as { accessToken: string }),
 
+  oauthUrl: (provider: OAuthProvider) => `${API_BASE_URL}/auth/oauth/${provider}`,
+
   fetchMe: () => api.get("/auth/me").then((r) => r.data.data.user as User),
 
   verifyEmail: (email: string, code: string) =>
@@ -21,7 +26,11 @@ export const authService = {
     api.post("/auth/resend-verify-otp", { email }).then((r) => r.data),
 
   forgotPassword: (email: string) =>
-    api.post("/auth/forgot-password", { email }).then((r) => r.data),
+    api.post("/auth/forgot-password", { email }).then((r) => r.data as {
+      success: boolean;
+      message: string;
+      data?: { sent?: boolean };
+    }),
 
   verifyResetOtp: (email: string, code: string) =>
     api.post("/auth/verify-reset-otp", { email, code }).then((r) => r.data.data as { resetToken: string }),
@@ -42,4 +51,41 @@ export const authService = {
       .post("/auth/avatar", fd, { headers: { "Content-Type": "multipart/form-data" } })
       .then((r) => r.data.data as { avatarUrl: string });
   },
+
+  sessions: () =>
+    api.get("/auth/sessions").then((r) => r.data.data.items as AuthSession[]),
+
+  revokeSession: (id: number) =>
+    api.delete(`/auth/sessions/${id}`).then((r) => r.data.data as { revokedCurrent: boolean }),
+
+  revokeOtherSessions: () =>
+    api.delete("/auth/sessions/others").then((r) => r.data.data as { revokedCount: number }),
+
+  loginHistory: (page = 1, limit = 10, status?: LoginHistory["status"]) =>
+    api
+      .get("/auth/login-history", { params: { page, limit, status } })
+      .then((r) => r.data.data as PaginatedResult<LoginHistory>),
+
+  activityLogs: (page = 1, limit = 10) =>
+    api
+      .get("/auth/activity-logs", { params: { page, limit } })
+      .then((r) => r.data.data as PaginatedResult<ActivityLog>),
+
+  // ===== 2FA =====
+  setup2FA: () =>
+    api.get("/auth/2fa/setup").then((r) => r.data.data as { secret: string; qrCodeDataUrl: string; otpAuthUrl: string }),
+
+  enable2FA: (token: string) =>
+    api.post("/auth/2fa/enable", { token }).then((r) => r.data.data as { backupCodes: string[] }),
+
+  disable2FA: (password: string) =>
+    api.post("/auth/2fa/disable", { password }).then((r) => r.data.data as { message: string }),
+
+  regenerateBackupCodes: (password: string) =>
+    api.post("/auth/2fa/backup-codes/regenerate", { password }).then((r) => r.data.data as { backupCodes: string[] }),
+
+  verify2FA: (twoFactorToken: string, token: string, useBackup = false) =>
+    api
+      .post("/auth/2fa/verify", { twoFactorToken, token, useBackup })
+      .then((r) => r.data.data as { user: User; accessToken: string }),
 };

@@ -22,5 +22,6 @@ router.put("/:id", validate(updateWalletSchema), ctrl.updateWallet);
 router.delete("/:id", ctrl.deleteWallet);
 
 router.get("/:id/history", ctrl.getWalletHistory);
+router.get("/:id/balance-history", ctrl.getWalletBalanceHistory);
 
 export default router;

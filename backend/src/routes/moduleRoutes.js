@@ -22,6 +22,7 @@ import {
   createGoalSchema,
   updateGoalSchema,
   addToGoalSchema,
+  withdrawFromGoalSchema,
   createDebtSchema,
   updateDebtSchema,
   payDebtSchema,
@@ -29,12 +30,14 @@ import {
   updateTemplateSchema,
   useTemplateSchema,
 } from "../validations/otherValidations.js";
+import { updateNotificationPreferenceSchema } from "../validations/notificationValidation.js";
 
 // ===== Budget =====
 export const budgetRouter = express.Router();
 budgetRouter.use(protectedRoute);
 budgetRouter.get("/", budget.listBudgets);
 budgetRouter.get("/summary", budget.getBudgetSummary);
+budgetRouter.get("/suggestions", budget.suggestBudgets);
 budgetRouter.post("/", validate(createBudgetSchema), budget.createBudget);
 budgetRouter.get("/:id", budget.getBudget);
 budgetRouter.put("/:id", validate(updateBudgetSchema), budget.updateBudget);
@@ -59,6 +62,7 @@ goalRouter.get("/:id", goal.getGoal);
 goalRouter.put("/:id", validate(updateGoalSchema), goal.updateGoal);
 goalRouter.delete("/:id", goal.deleteGoal);
 goalRouter.post("/:id/add", validate(addToGoalSchema), goal.addToGoal);
+goalRouter.post("/:id/withdraw", validate(withdrawFromGoalSchema), goal.withdrawFromGoal);
 
 // ===== Debt =====
 export const debtRouter = express.Router();
@@ -84,6 +88,8 @@ templateRouter.post("/:id/use", validate(useTemplateSchema), tpl.useTemplate);
 export const notifRouter = express.Router();
 notifRouter.use(protectedRoute);
 notifRouter.get("/", notif.listNotifications);
+notifRouter.get("/preferences", notif.getPreferences);
+notifRouter.put("/preferences", validate(updateNotificationPreferenceSchema), notif.updatePreferences);
 notifRouter.get("/unread-count", notif.getUnreadCount);
 notifRouter.put("/mark-all-read", notif.markAllRead);
 notifRouter.put("/:id/read", notif.markRead);

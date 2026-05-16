@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Wallet as WalletIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ArrowRightLeft, History, Plus, Pencil, Trash2, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,11 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { IconBubble } from "@/components/common/IconBubble";
 import { WalletFormDialog } from "@/components/wallet/WalletFormDialog";
+import { WalletBalanceHistoryDialog } from "@/components/wallet/WalletBalanceHistoryDialog";
+import { WalletTransferDialog } from "@/components/wallet/WalletTransferDialog";
 import { walletService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
+import { onTransactionsChanged, onWalletsChanged } from "@/lib/realtime";
 import { formatCurrency } from "@/lib/utils";
 import type { Wallet } from "@/types";
 
@@ -28,12 +31,14 @@ export default function WalletPage() {
   const [totalBalance, setTotalBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [editing, setEditing] = useState<Wallet | null>(null);
+  const [historyWallet, setHistoryWallet] = useState<Wallet | null>(null);
   const [deleting, setDeleting] = useState<Wallet | null>(null);
   const [delLoading, setDelLoading] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const { wallets, totalBalance } = await walletService.list();
       setWallets(wallets);
@@ -41,11 +46,19 @@ export default function WalletPage() {
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => onTransactionsChanged(() => {
+    void load({ silent: true });
+  }), [load]);
+
+  useEffect(() => onWalletsChanged(() => {
+    void load({ silent: true });
+  }), [load]);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -54,7 +67,7 @@ export default function WalletPage() {
       await walletService.remove(deleting.id);
       toast.success("Đã xoá ví");
       setDeleting(null);
-      load();
+      void load({ silent: true });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -73,6 +86,17 @@ export default function WalletPage() {
           </Button>
         }
       />
+
+      <div className="mb-4 flex justify-end">
+        <Button
+          variant="outline"
+          onClick={() => setTransferOpen(true)}
+          disabled={wallets.filter((wallet) => wallet.isActive).length < 2}
+          className="w-full sm:w-auto"
+        >
+          <ArrowRightLeft className="size-4" /> Chuyển tiền giữa ví
+        </Button>
+      </div>
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -102,6 +126,14 @@ export default function WalletPage() {
                     <Button
                       size="icon-sm"
                       variant="ghost"
+                      onClick={() => setHistoryWallet(w)}
+                      title="Xem biến động số dư"
+                    >
+                      <History className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
                       onClick={() => { setEditing(w); setFormOpen(true); }}
                     >
                       <Pencil className="size-4" />
@@ -124,6 +156,11 @@ export default function WalletPage() {
                 {!w.isActive && (
                   <Badge variant="outline" className="mt-2 text-xs">Không hoạt động</Badge>
                 )}
+                {w.lowBalanceThreshold && Number(w.lowBalanceThreshold) > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Cảnh báo thấp dưới {formatCurrency(w.lowBalanceThreshold)}
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -134,13 +171,26 @@ export default function WalletPage() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         wallet={editing}
-        onSaved={load}
+        onSaved={() => load({ silent: true })}
+      />
+
+      <WalletTransferDialog
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        wallets={wallets}
+        onSaved={() => load({ silent: true })}
+      />
+
+      <WalletBalanceHistoryDialog
+        open={!!historyWallet}
+        onClose={() => setHistoryWallet(null)}
+        wallet={historyWallet}
       />
 
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá ví?"
+        title="Xóa ví?"
         description={`Bạn có chắc muốn xoá ví "${deleting?.name}"? Ví sẽ chỉ xoá được nếu chưa có giao dịch nào.`}
         loading={delLoading}
         onConfirm={handleDelete}

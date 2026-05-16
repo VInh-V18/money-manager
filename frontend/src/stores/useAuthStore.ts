@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { toast } from "sonner";
 import { authService } from "@/services/authService";
@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true });
           await authService.signUp(data);
-          toast.success("Đăng ký thành công! Hãy kiểm tra email để nhập OTP xác thực.");
+          toast.success("Đăng ký thành công! Bạn có thể đăng nhập ngay.");
           return true;
         } catch (error) {
           toast.error(getErrorMessage(error, "Đăng ký không thành công"));
@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: true });
           const { user, accessToken } = await authService.signIn(identifier, password);
           set({ user, accessToken });
-          toast.success(`Chào ${user.displayName} 👋`);
+          toast.success(`Chào ${user.displayName}`);
           return true;
         } catch (error) {
           toast.error(getErrorMessage(error, "Đăng nhập không thành công"));
@@ -97,3 +97,4 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+

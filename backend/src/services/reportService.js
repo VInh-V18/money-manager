@@ -4,8 +4,10 @@ import {
   Wallet,
   Category,
   Budget,
+  Debt,
   FixedExpense,
 } from "../models/index.js";
+import { calculateBudgetsSummary } from "./budgetService.js";
 import {
   formatDate,
   startOfMonth,
@@ -27,6 +29,65 @@ const sumWhere = async (userId, type, fromDate, toDate) => {
     raw: true,
   });
   return Number(r?.total || 0);
+};
+
+const buildTransactionWhere = (userId, fromDate, toDate, opts = {}) => {
+  const where = {
+    userId,
+    transactionDate: { [Op.between]: [fromDate, toDate] },
+  };
+  const walletId = Number(opts.walletId);
+  const categoryId = Number(opts.categoryId);
+  if (Number.isInteger(walletId) && walletId > 0) where.walletId = walletId;
+  if (Number.isInteger(categoryId) && categoryId > 0) where.categoryId = categoryId;
+  if (["income", "expense"].includes(opts.type)) where.type = opts.type;
+  return where;
+};
+
+const getFinancialHealth = async (userId, summary) => {
+  const [wallets, budgets, overdueDebts] = await Promise.all([
+    Wallet.findAll({ where: { userId, isActive: true } }),
+    calculateBudgetsSummary(userId),
+    Debt.count({ where: { userId, status: "overdue" } }),
+  ]);
+
+  const activeWallets = wallets.filter((wallet) => !wallet.excludeFromTotal);
+  const totalBalance = activeWallets.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
+  const lowWallets = activeWallets.filter((wallet) => {
+    const threshold = Number(wallet.lowBalanceThreshold || 0);
+    return threshold > 0 && Number(wallet.balance) <= threshold;
+  }).length;
+  const negativeWallets = activeWallets.filter((wallet) => Number(wallet.balance) < 0).length;
+  const exceededBudgets = budgets.filter((budget) => budget.isExceeded).length;
+  const warningBudgets = budgets.filter((budget) => budget.isWarning && !budget.isExceeded).length;
+
+  const deductions = [];
+  if (summary.income <= 0) deductions.push({ key: "no_income", points: 15, message: "Chua co thu nhap trong khoang nay" });
+  if (summary.savingRate < 0) deductions.push({ key: "negative_saving", points: 25, message: "Chi tieu dang cao hon thu nhap" });
+  else if (summary.savingRate < 10) deductions.push({ key: "low_saving", points: 12, message: "Ty le tiet kiem duoi 10%" });
+  if (totalBalance < 0) deductions.push({ key: "negative_balance", points: 20, message: "Tong so du vi dang am" });
+  if (negativeWallets > 0) deductions.push({ key: "negative_wallets", points: Math.min(15, negativeWallets * 5), message: `${negativeWallets} vi dang am so du` });
+  if (lowWallets > 0) deductions.push({ key: "low_wallets", points: Math.min(12, lowWallets * 4), message: `${lowWallets} vi duoi nguong an toan` });
+  if (exceededBudgets > 0) deductions.push({ key: "exceeded_budgets", points: Math.min(20, exceededBudgets * 10), message: `${exceededBudgets} ngan sach da vuot` });
+  if (warningBudgets > 0) deductions.push({ key: "warning_budgets", points: Math.min(10, warningBudgets * 4), message: `${warningBudgets} ngan sach gan vuot` });
+  if (overdueDebts > 0) deductions.push({ key: "overdue_debts", points: Math.min(18, overdueDebts * 9), message: `${overdueDebts} khoan no qua han` });
+
+  const score = Math.max(0, 100 - deductions.reduce((sum, item) => sum + item.points, 0));
+  const level = score >= 80 ? "good" : score >= 60 ? "fair" : score >= 40 ? "watch" : "risk";
+  const suggestions = deductions.slice(0, 4).map((item) => item.message);
+
+  return {
+    score,
+    level,
+    totalBalance,
+    savingRate: summary.savingRate,
+    exceededBudgets,
+    warningBudgets,
+    overdueDebts,
+    lowWallets,
+    negativeWallets,
+    suggestions,
+  };
 };
 
 /**
@@ -77,6 +138,15 @@ export const getOverview = async (userId) => {
     Math.ceil((endOfMonth() - new Date()) / (1000 * 60 * 60 * 24))
   );
 
+  const summary = {
+    income: monthIncome,
+    expense: monthExpense,
+    net: monthNet,
+    savingRate: Math.round(savingRate * 100) / 100,
+  };
+
+  const financialHealth = await getFinancialHealth(userId, summary);
+
   return {
     totalBalance,
     todayIncome,
@@ -84,10 +154,10 @@ export const getOverview = async (userId) => {
     monthIncome,
     monthExpense,
     monthNet,
-    savingRate: Math.round(savingRate * 100) / 100,
+    savingRate: summary.savingRate,
     daysLeftInMonth: daysLeft,
-    suggestedDailySpend:
-      monthNet > 0 ? Math.round(monthNet / daysLeft) : 0,
+    suggestedDailySpend: monthNet > 0 ? Math.round(monthNet / daysLeft) : 0,
+    financialHealth,
     recentTransactions: recentTx,
   };
 };
@@ -96,12 +166,7 @@ export const getOverview = async (userId) => {
  * Bao cao theo khoang thoi gian
  */
 export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
-  const where = {
-    userId,
-    transactionDate: { [Op.between]: [fromDate, toDate] },
-  };
-  if (opts.walletId) where.walletId = opts.walletId;
-  if (opts.categoryId) where.categoryId = opts.categoryId;
+  const where = buildTransactionWhere(userId, fromDate, toDate, opts);
 
   // tong thu chi
   const totals = await Transaction.findAll({
@@ -138,7 +203,7 @@ export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
       [fn("SUM", col("amount")), "total"],
       [fn("COUNT", col("Transaction.id")), "count"],
     ],
-    group: ["categoryId", "type", "Category.id"],
+    group: ["categoryId", "type", "Category.id", "Category.name", "Category.icon", "Category.color"],
     include: [
       {
         model: Category,
@@ -160,16 +225,19 @@ export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
     ],
   });
 
+  const summary = {
+    income,
+    expense,
+    net: income - expense,
+    incomeCount,
+    expenseCount,
+    savingRate: income > 0 ? Math.round(((income - expense) / income) * 10000) / 100 : 0,
+  };
+
   return {
     range: { from: fromDate, to: toDate },
-    summary: {
-      income,
-      expense,
-      net: income - expense,
-      incomeCount,
-      expenseCount,
-      savingRate: income > 0 ? Math.round(((income - expense) / income) * 10000) / 100 : 0,
-    },
+    summary,
+    financialHealth: await getFinancialHealth(userId, summary),
     byCategory: byCategory.map((row) => ({
       categoryId: row.categoryId,
       type: row.type,
@@ -184,12 +252,9 @@ export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
 /**
  * Thong ke theo ngay trong khoang (cho line/bar chart)
  */
-export const getDailyStats = async (userId, fromDate, toDate) => {
+export const getDailyStats = async (userId, fromDate, toDate, opts = {}) => {
   const rows = await Transaction.findAll({
-    where: {
-      userId,
-      transactionDate: { [Op.between]: [fromDate, toDate] },
-    },
+    where: buildTransactionWhere(userId, fromDate, toDate, opts),
     attributes: [
       "transactionDate",
       "type",
@@ -218,6 +283,30 @@ export const getDailyStats = async (userId, fromDate, toDate) => {
     cur = addDays(cur, 1);
   }
   return result;
+};
+
+export const getWeeklyStats = async (userId, fromDate, toDate, opts = {}) => {
+  const daily = await getDailyStats(userId, fromDate, toDate, opts);
+  const weeks = new Map();
+  for (const item of daily) {
+    const date = new Date(item.date);
+    const weekStart = addDays(date, -date.getDay() + 1);
+    const key = formatDate(weekStart);
+    if (!weeks.has(key)) {
+      weeks.set(key, {
+        weekStart: key,
+        weekEnd: formatDate(addDays(weekStart, 6)),
+        income: 0,
+        expense: 0,
+        net: 0,
+      });
+    }
+    const row = weeks.get(key);
+    row.income += item.income;
+    row.expense += item.expense;
+    row.net = row.income - row.expense;
+  }
+  return Array.from(weeks.values());
 };
 
 /**

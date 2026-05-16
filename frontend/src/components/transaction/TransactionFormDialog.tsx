@@ -3,14 +3,16 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CurrencyInput } from "@/components/common/CurrencyInput";
 import { transactionService } from "@/services/transactionService";
+import { aiService } from "@/services/aiService";
 import { walletService, categoryService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
+import { getBackendAssetUrl } from "@/lib/env";
 import { toISODate } from "@/lib/utils";
 import type { Transaction, Wallet, Category } from "@/types";
 
@@ -21,7 +23,10 @@ const schema = z.object({
   amount: z.number().positive("Số tiền phải > 0"),
   description: z.string().optional(),
   note: z.string().optional(),
+  tags: z.string().optional(),
   transactionDate: z.string(),
+  transactionTime: z.string().nullable().optional(),
+  receiptUrl: z.string().nullable().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -36,8 +41,11 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
   const isEdit = !!transaction;
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | undefined>();
+  const [classifying, setClassifying] = useState(false);
 
-  const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       type: "expense",
@@ -46,11 +54,15 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       amount: 0,
       description: "",
       note: "",
+      tags: "",
       transactionDate: toISODate(new Date()),
+      transactionTime: null,
+      receiptUrl: null,
     },
   });
 
   const txType = watch("type");
+  const description = watch("description");
 
   useEffect(() => {
     if (!open) return;
@@ -71,8 +83,12 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         amount: Number(transaction.amount),
         description: transaction.description || "",
         note: transaction.note || "",
+        tags: Array.isArray(transaction.metadata?.tags) ? transaction.metadata.tags.join(", ") : "",
         transactionDate: transaction.transactionDate,
+        transactionTime: transaction.transactionTime?.slice(0, 5) || null,
+        receiptUrl: transaction.receiptUrl || null,
       });
+      setReceiptPreview(getBackendAssetUrl(transaction.receiptUrl));
     } else {
       reset({
         type: "expense",
@@ -81,16 +97,35 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         amount: 0,
         description: "",
         note: "",
+        tags: "",
         transactionDate: toISODate(new Date()),
+        transactionTime: null,
+        receiptUrl: null,
       });
+      setReceiptPreview(undefined);
     }
+    setReceiptFile(null);
   }, [transaction, reset, open, wallets]);
 
   const onSubmit = async (data: FormData) => {
     try {
+      let receiptUrl = data.receiptUrl || null;
+      if (receiptFile) {
+        receiptUrl = await transactionService.uploadReceipt(receiptFile);
+      }
+      const { tags, ...txData } = data;
       const payload = {
-        ...data,
-        categoryId: data.categoryId || null,
+        ...txData,
+        categoryId: txData.categoryId || null,
+        transactionTime: txData.transactionTime || null,
+        metadata: {
+          ...(transaction?.metadata || {}),
+          tags: (tags || "")
+            .split(",")
+            .map((tag) => tag.trim().replace(/^#/, ""))
+            .filter(Boolean),
+        },
+        receiptUrl,
       };
       if (isEdit) {
         await transactionService.update(transaction!.id, payload);
@@ -106,6 +141,50 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
     }
   };
 
+  const handleReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Chỉ chọn file ảnh hóa đơn");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh hóa đơn tối đa 5MB");
+      return;
+    }
+    setReceiptFile(file);
+    setReceiptPreview(URL.createObjectURL(file));
+  };
+
+  const removeReceipt = () => {
+    setReceiptFile(null);
+    setReceiptPreview(undefined);
+    setValue("receiptUrl", null, { shouldDirty: true });
+  };
+
+  const classifyCategory = async () => {
+    const text = (description || "").trim();
+    if (!text) {
+      toast.error("Nhập mô tả trước khi dùng AI phân loại");
+      return;
+    }
+    setClassifying(true);
+    try {
+      const result = await aiService.classify(text, txType);
+      setValue("type", result.type, { shouldDirty: true });
+      if (result.category?.id) {
+        setValue("categoryId", result.category.id, { shouldDirty: true });
+        toast.success(`AI chọn danh mục: ${result.category.name}`);
+      } else {
+        toast.info(result.reason || "AI chưa tìm thấy danh mục phù hợp");
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "AI chưa phân loại được"));
+    } finally {
+      setClassifying(false);
+    }
+  };
+
   const filteredCats = categories.filter((c) => c.type === txType);
 
   return (
@@ -113,6 +192,9 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Sửa giao dịch" : "Thêm giao dịch"}</DialogTitle>
+          <DialogDescription>
+            Nhập thông tin giao dịch và đính kèm ảnh hóa đơn nếu có.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Tabs Type */}
@@ -164,7 +246,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
             {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Ví</Label>
               <Controller
@@ -184,7 +266,12 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
               {errors.walletId && <p className="text-xs text-destructive">{errors.walletId.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label>Danh mục</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Danh mục</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={classifyCategory} loading={classifying}>
+                  AI phân loại
+                </Button>
+              </div>
               <Controller
                 control={control}
                 name="categoryId"
@@ -210,18 +297,42 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
             <Input {...register("description")} placeholder="VD: Ăn trưa, đổ xăng..." />
           </div>
 
-          <div className="space-y-2">
-            <Label>Ngày</Label>
-            <Input type="date" {...register("transactionDate")} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Ngày</Label>
+              <Input type="date" {...register("transactionDate")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Gio</Label>
+              <Input type="time" {...register("transactionTime")} />
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label>Ghi chú</Label>
-            <Textarea {...register("note")} rows={2} placeholder="Tuỳ chọn" />
+            <Textarea {...register("note")} rows={2} placeholder="Tùy chọn" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <Input {...register("tags")} placeholder="VD: di_choi, hoc_tap, gia_dinh" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Ảnh hóa đơn</Label>
+            <Input type="file" accept="image/*" onChange={handleReceiptChange} />
+            {receiptPreview && (
+              <div className="space-y-2 overflow-hidden rounded-lg border p-2">
+                <img src={receiptPreview} alt="Ảnh hóa đơn" className="max-h-48 w-full object-contain bg-muted" />
+                <Button type="button" variant="outline" size="sm" onClick={removeReceipt} className="w-full">
+                  Go anh hoa don
+                </Button>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Huỷ</Button>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
             <Button type="submit" loading={isSubmitting}>
               {isEdit ? "Cập nhật" : "Lưu"}
             </Button>

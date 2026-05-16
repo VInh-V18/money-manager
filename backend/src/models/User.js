@@ -14,14 +14,23 @@ export default (sequelize) => {
       bio: { type: DataTypes.STRING(500), allowNull: true },
       phone: { type: DataTypes.STRING(20), allowNull: true, unique: true },
       isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
-      // tien te chinh hien thi tren dashboard
+      role: {
+        type: DataTypes.ENUM("USER", "ADMIN", "SUPER_ADMIN", "PREMIUM_USER", "SUPPORT", "AUDITOR"),
+        allowNull: false,
+        defaultValue: "USER",
+      },
+      failedLoginCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      lockedUntil: { type: DataTypes.DATE, allowNull: true },
+      passwordChangedAt: { type: DataTypes.DATE, allowNull: true },
       defaultCurrency: { type: DataTypes.STRING(10), defaultValue: "VND" },
       timezone: { type: DataTypes.STRING(50), defaultValue: "Asia/Ho_Chi_Minh" },
+      twoFactorEnabled: { type: DataTypes.BOOLEAN, defaultValue: false },
+      twoFactorSecret: { type: DataTypes.STRING(255), allowNull: true },
     },
     {
       tableName: "users",
       timestamps: true,
-      indexes: [{ fields: ["email"] }, { fields: ["username"] }],
+      indexes: [{ fields: ["email"] }, { fields: ["username"] }, { fields: ["role"] }],
     }
   );
 

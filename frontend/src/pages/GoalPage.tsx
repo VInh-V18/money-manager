@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, Target, CheckCircle2, Wallet as WalletIcon } from "lucide-react";
+import { Minus, Plus, Pencil, Trash2, Target, CheckCircle2, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,9 @@ export default function GoalPage() {
   const [addingTo, setAddingTo] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState(0);
   const [adding, setAdding] = useState(false);
+  const [withdrawingFrom, setWithdrawingFrom] = useState<Goal | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState(0);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -146,6 +149,26 @@ export default function GoalPage() {
     }
   };
 
+  const handleWithdrawFromGoal = async () => {
+    if (!withdrawingFrom || withdrawAmount <= 0) return;
+    if (withdrawAmount > Number(withdrawingFrom.currentAmount)) {
+      toast.error("So tien rut vuot qua so tien hien co");
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      await goalService.withdrawFromGoal(withdrawingFrom.id, withdrawAmount);
+      toast.success("Da rut tien khoi muc tieu");
+      setWithdrawingFrom(null);
+      setWithdrawAmount(0);
+      load();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -226,17 +249,29 @@ export default function GoalPage() {
                       </span>
                     )}
                   </div>
-                  {!isDone && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full mt-3"
-                      onClick={() => { setAddingTo(g); setAddAmount(0); }}
-                    >
-                      <WalletIcon className="size-4" />
-                      Bỏ thêm tiền
-                    </Button>
-                  )}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {!isDone && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setAddingTo(g); setAddAmount(0); }}
+                      >
+                        <WalletIcon className="size-4" />
+                        Bỏ thêm tiền
+                      </Button>
+                    )}
+                    {Number(g.currentAmount) > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setWithdrawingFrom(g); setWithdrawAmount(0); }}
+                        className={isDone ? "sm:col-span-2" : ""}
+                      >
+                        <Minus className="size-4" />
+                        Rút tiền
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -331,7 +366,7 @@ export default function GoalPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -349,9 +384,34 @@ export default function GoalPage() {
             <CurrencyInput value={addAmount} onChange={setAddAmount} className="text-xl h-12" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddingTo(null)}>Huỷ</Button>
+            <Button variant="outline" onClick={() => setAddingTo(null)}>Hủy</Button>
             <Button onClick={handleAddToGoal} loading={adding} disabled={addAmount <= 0}>
               Xác nhận
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!withdrawingFrom} onOpenChange={(o) => !o && setWithdrawingFrom(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rut tien khoi "{withdrawingFrom?.name}"</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+              Hien co: {formatCurrency(withdrawingFrom?.currentAmount || 0)}
+            </div>
+            <Label>So tien rut</Label>
+            <CurrencyInput value={withdrawAmount} onChange={setWithdrawAmount} className="text-xl h-12" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWithdrawingFrom(null)}>Huy</Button>
+            <Button
+              onClick={handleWithdrawFromGoal}
+              loading={withdrawing}
+              disabled={withdrawAmount <= 0 || withdrawAmount > Number(withdrawingFrom?.currentAmount || 0)}
+            >
+              Xac nhan
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -360,7 +420,7 @@ export default function GoalPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá mục tiêu?"
+        title="Xóa mục tiêu?"
         description={`Bạn có chắc muốn xoá "${deleting?.name}"?`}
         loading={delLoading}
         onConfirm={handleDelete}

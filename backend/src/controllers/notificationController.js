@@ -3,6 +3,20 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok } from "../utils/response.js";
 import { notFoundError, forbiddenError } from "../utils/errors.js";
 import { Notification } from "../models/index.js";
+import {
+  getOrCreateNotificationPreference,
+  updateNotificationPreference,
+} from "../services/notificationService.js";
+
+export const getPreferences = asyncHandler(async (req, res) => {
+  const preference = await getOrCreateNotificationPreference(req.user.id);
+  return ok(res, { preferences: preference });
+});
+
+export const updatePreferences = asyncHandler(async (req, res) => {
+  const preference = await updateNotificationPreference(req.user.id, req.body);
+  return ok(res, { preferences: preference }, "Da cap nhat cai dat thong bao");
+});
 
 export const listNotifications = asyncHandler(async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);

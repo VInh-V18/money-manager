@@ -3,11 +3,12 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { TrendingUp, Eye, EyeOff } from "lucide-react";
+import { TrendingUp, Eye, EyeOff, Chrome, Github, Globe2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { authService, type OAuthProvider } from "@/services/authService";
 
 const schema = z.object({
   identifier: z.string().min(1, "Vui lòng nhập email hoặc username"),
@@ -34,8 +35,12 @@ export default function SignInPage() {
     if (ok) navigate("/");
   };
 
+  const handleOAuthLogin = (provider: OAuthProvider) => {
+    window.location.href = authService.oauthUrl(provider);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 p-4">
+    <div className="flex min-h-dvh items-start justify-center overflow-y-auto bg-gradient-to-br from-blue-50 via-background to-indigo-50 px-4 py-6 dark:from-blue-950/20 dark:via-background dark:to-indigo-950/20 sm:items-center">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-md">
@@ -49,7 +54,9 @@ export default function SignInPage() {
             <div className="space-y-2">
               <Label htmlFor="identifier">Email hoặc Username</Label>
               <Input id="identifier" {...register("identifier")} placeholder="demo@money.local" />
-              {errors.identifier && <p className="text-xs text-destructive">{errors.identifier.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.identifier?.message}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -64,7 +71,7 @@ export default function SignInPage() {
                   id="password"
                   type={showPwd ? "text" : "password"}
                   {...register("password")}
-                  placeholder="••••••••"
+                  placeholder="********"
                 />
                 <Button
                   type="button"
@@ -76,13 +83,51 @@ export default function SignInPage() {
                   {showPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </Button>
               </div>
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              <p className="min-h-4 text-xs text-destructive" aria-live="polite">
+                {errors.password?.message}
+              </p>
             </div>
 
             <Button type="submit" className="w-full" loading={loading}>
               Đăng nhập
             </Button>
           </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">Hoặc đăng nhập bằng</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleOAuthLogin("google")}
+            >
+              <Chrome className="mr-2 size-4" />
+              Google
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleOAuthLogin("facebook")}
+            >
+              <Globe2 className="mr-2 size-4" />
+              Facebook
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleOAuthLogin("github")}
+            >
+              <Github className="mr-2 size-4" />
+              GitHub
+            </Button>
+          </div>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Chưa có tài khoản?{" "}

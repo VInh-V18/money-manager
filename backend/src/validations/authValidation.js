@@ -9,7 +9,7 @@ export const signUpSchema = z.object({
   email: z.string().email("Email khong hop le").max(255),
   password: z
     .string()
-    .min(6, "Mat khau toi thieu 6 ky tu")
+    .min(8, "Mat khau toi thieu 8 ky tu")
     .max(100, "Mat khau toi da 100 ky tu"),
   displayName: z.string().min(1, "Vui long nhap ho ten").max(255),
 });
@@ -40,12 +40,12 @@ export const resetPasswordSchema = z.object({
   email: z.string().email(),
   // resetToken duoc tra ve sau khi verify OTP thanh cong
   resetToken: z.string().min(10),
-  newPassword: z.string().min(6).max(100),
+  newPassword: z.string().min(8).max(100),
 });
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(6).max(100),
+  newPassword: z.string().min(8).max(100),
 });
 
 export const updateProfileSchema = z.object({

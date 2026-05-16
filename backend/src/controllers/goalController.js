@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok, created } from "../utils/response.js";
 import { notFoundError, forbiddenError, badRequest } from "../utils/errors.js";
 import { FinancialGoal } from "../models/index.js";
+import { createNotification } from "../services/notificationService.js";
 
 const enrichGoal = (g) => {
   const target = Number(g.targetAmount);
@@ -75,11 +76,58 @@ export const addToGoal = asyncHandler(async (req, res) => {
     throw badRequest("Muc tieu da hoan tat hoac da huy");
   }
 
+  const targetAmount = Number(g.targetAmount);
+  const oldProgress = targetAmount > 0 ? (Number(g.currentAmount) / targetAmount) * 100 : 0;
   const newCurrent = Number(g.currentAmount) + Number(req.body.amount);
+  const newProgress = targetAmount > 0 ? (newCurrent / targetAmount) * 100 : 0;
   const data = { currentAmount: newCurrent };
-  if (newCurrent >= Number(g.targetAmount)) {
+  if (newCurrent >= targetAmount) {
     data.status = "completed";
   }
   await g.update(data);
+
+  if (data.status === "completed") {
+    await createNotification(req.user.id, {
+      type: "goal_progress",
+      severity: "info",
+      title: "Muc tieu da hoan thanh",
+      message: `Ban da hoan thanh muc tieu "${g.name}".`,
+      relatedEntity: { entityType: "goal", entityId: g.id },
+    });
+  } else {
+    const milestone = [75, 50, 25].find((value) => oldProgress < value && newProgress >= value);
+    if (milestone) {
+      await createNotification(req.user.id, {
+        type: "goal_progress",
+        severity: "info",
+        title: "Tien do muc tieu",
+        message: `Muc tieu "${g.name}" da dat ${milestone}%.`,
+        relatedEntity: { entityType: "goal", entityId: g.id },
+      });
+    }
+  }
   return ok(res, { goal: enrichGoal(g) }, "Da cap nhat tien tiet kiem");
+});
+
+export const withdrawFromGoal = asyncHandler(async (req, res) => {
+  const g = await FinancialGoal.findByPk(req.params.id);
+  if (!g) throw notFoundError();
+  if (g.userId !== req.user.id) throw forbiddenError();
+  if (g.status === "cancelled") {
+    throw badRequest("Muc tieu da huy");
+  }
+
+  const amount = Number(req.body.amount);
+  const current = Number(g.currentAmount);
+  if (amount > current) {
+    throw badRequest("So tien rut vuot qua so tien hien co trong muc tieu");
+  }
+
+  const data = { currentAmount: current - amount };
+  if (g.status === "completed" && data.currentAmount < Number(g.targetAmount)) {
+    data.status = "active";
+  }
+  await g.update(data);
+
+  return ok(res, { goal: enrichGoal(g) }, "Da rut tien khoi muc tieu");
 });

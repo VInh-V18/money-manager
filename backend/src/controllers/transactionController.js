@@ -1,4 +1,5 @@
-import { Op } from "sequelize";
+import crypto from "crypto";
+import { Op, col, fn, where as sqlWhere } from "sequelize";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok, created } from "../utils/response.js";
 import { notFoundError, forbiddenError, badRequest } from "../utils/errors.js";
@@ -12,7 +13,45 @@ import {
   createTransactionWithBalance,
   updateTransactionWithBalance,
   deleteTransactionWithBalance,
+  restoreTransactionWithBalance,
 } from "../services/transactionService.js";
+import { writeActivityLog } from "../services/activityLogService.js";
+
+const transactionInclude = [
+  { model: Wallet },
+  { model: Category },
+];
+
+const getIdempotencyKey = (req, bodyKey) => {
+  const headerKey = req.get("Idempotency-Key") || req.get("x-idempotency-key");
+  const value = bodyKey || headerKey;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
+const assertValidIdempotencyKey = (key) => {
+  if (!key) return;
+  if (key.length < 8 || key.length > 100 || !/^[a-zA-Z0-9:_-]+$/.test(key)) {
+    throw badRequest("Idempotency key khong hop le");
+  }
+};
+
+const buildTransactionChecksum = (userId, data) => {
+  const payload = {
+    userId,
+    walletId: Number(data.walletId),
+    categoryId: data.categoryId ? Number(data.categoryId) : null,
+    type: data.type,
+    subType: data.subType || "regular",
+    amount: Number(data.amount).toFixed(2),
+    description: data.description || "",
+    note: data.note || "",
+    transactionDate: data.transactionDate,
+    transactionTime: data.transactionTime || null,
+    receiptUrl: data.receiptUrl || null,
+    metadata: data.metadata || null,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+};
 
 // ===== Liet ke voi filter + pagination =====
 export const listTransactions = asyncHandler(async (req, res) => {
@@ -27,6 +66,8 @@ export const listTransactions = asyncHandler(async (req, res) => {
     minAmount,
     maxAmount,
     search,
+    tag,
+    hasReceipt,
     sortBy,
     sortDir,
   } = req.query;
@@ -49,6 +90,17 @@ export const listTransactions = asyncHandler(async (req, res) => {
     where[Op.or] = [
       { description: { [Op.like]: `%${search}%` } },
       { note: { [Op.like]: `%${search}%` } },
+    ];
+  }
+  if (hasReceipt !== undefined) {
+    where.receiptUrl = hasReceipt ? { [Op.ne]: null } : null;
+  }
+  if (tag) {
+    where[Op.and] = [
+      ...(where[Op.and] || []),
+      sqlWhere(fn("JSON_SEARCH", col("metadata"), "one", tag, null, "$.tags[*]"), {
+        [Op.ne]: null,
+      }),
     ];
   }
 
@@ -124,9 +176,62 @@ export const getTransaction = asyncHandler(async (req, res) => {
   return ok(res, { transaction: tx });
 });
 
+export const uploadTransactionReceipt = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw badRequest("Vui long chon anh hoa don");
+  }
+  const receiptUrl = `/uploads/${req.file.filename}`;
+  return ok(res, { receiptUrl }, "Da tai anh hoa don");
+});
+
+export const listDeletedTransactions = asyncHandler(async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+  const { rows, count } = await Transaction.findAndCountAll({
+    where: {
+      userId: req.user.id,
+      deletedAt: { [Op.ne]: null },
+    },
+    paranoid: false,
+    order: [["deletedAt", "DESC"]],
+    limit,
+    offset: (page - 1) * limit,
+    include: transactionInclude,
+  });
+
+  return ok(res, {
+    items: rows,
+    pagination: {
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil(count / limit),
+    },
+  });
+});
+
 // ===== Tao giao dich (logic chinh) =====
 export const createTransaction = asyncHandler(async (req, res) => {
-  const { allowNegative, ...data } = req.body;
+  const { allowNegative, idempotencyKey: bodyIdempotencyKey, ...data } = req.body;
+  const idempotencyKey = getIdempotencyKey(req, bodyIdempotencyKey);
+  assertValidIdempotencyKey(idempotencyKey);
+
+  if (idempotencyKey) {
+    const existing = await Transaction.findOne({
+      where: { userId: req.user.id, idempotencyKey },
+      include: transactionInclude,
+    });
+    if (existing) {
+      return ok(
+        res,
+        { transaction: existing, idempotent: true },
+        "Giao dich da ton tai"
+      );
+    }
+  }
+
+  data.idempotencyKey = idempotencyKey;
+  data.checksum = buildTransactionChecksum(req.user.id, data);
 
   // validate categoryId neu co
   if (data.categoryId) {
@@ -142,14 +247,24 @@ export const createTransaction = asyncHandler(async (req, res) => {
   }
 
   const tx = await sequelize.transaction(async (dbTx) => {
-    return createTransactionWithBalance(req.user.id, data, dbTx, {
+    const createdTx = await createTransactionWithBalance(req.user.id, data, dbTx, {
       allowNegative,
     });
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "create",
+      entityType: "transaction",
+      entityId: createdTx.id,
+      payload: { newValue: createdTx.toJSON() },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
+    return createdTx;
   });
 
   // load lai voi association de tra ve frontend
   const full = await Transaction.findByPk(tx.id, {
-    include: [{ model: Wallet }, { model: Category }],
+    include: transactionInclude,
   });
   return created(res, { transaction: full }, "Tao giao dich thanh cong");
 });
@@ -177,7 +292,17 @@ export const updateTransaction = asyncHandler(async (req, res) => {
   }
 
   await sequelize.transaction(async (dbTx) => {
+    const oldValue = tx.toJSON();
     await updateTransactionWithBalance(tx, data, dbTx, { allowNegative });
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "update",
+      entityType: "transaction",
+      entityId: tx.id,
+      payload: { oldValue, newValue: tx.toJSON() },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
   });
 
   const full = await Transaction.findByPk(tx.id, {
@@ -193,9 +318,83 @@ export const deleteTransaction = asyncHandler(async (req, res) => {
   if (tx.userId !== req.user.id) throw forbiddenError();
 
   await sequelize.transaction(async (dbTx) => {
+    const oldValue = tx.toJSON();
     await deleteTransactionWithBalance(tx, dbTx);
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "delete",
+      entityType: "transaction",
+      entityId: tx.id,
+      payload: { oldValue },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
   });
   return ok(res, null, "Da xoa giao dich va hoan tac so du");
+});
+
+// ===== Xoa nhieu giao dich =====
+export const deleteTransactionsBulk = asyncHandler(async (req, res) => {
+  const ids = [...new Set(req.body.ids.map(Number))];
+  const transactions = await Transaction.findAll({
+    where: {
+      id: { [Op.in]: ids },
+      userId: req.user.id,
+    },
+    order: [["id", "ASC"]],
+  });
+
+  if (transactions.length !== ids.length) {
+    throw badRequest("Mot so giao dich khong ton tai hoac khong thuoc ve ban");
+  }
+
+  await sequelize.transaction(async (dbTx) => {
+    for (const tx of transactions) {
+      const oldValue = tx.toJSON();
+      await deleteTransactionWithBalance(tx, dbTx);
+      await writeActivityLog({
+        userId: req.user.id,
+        action: "delete",
+        entityType: "transaction",
+        entityId: tx.id,
+        payload: { oldValue, bulk: true },
+        ipAddress: req.ip,
+        transaction: dbTx,
+      });
+    }
+  });
+
+  return ok(
+    res,
+    { deletedCount: transactions.length },
+    `Da xoa ${transactions.length} giao dich va hoan tac so du`
+  );
+});
+
+export const restoreTransaction = asyncHandler(async (req, res) => {
+  const tx = await Transaction.findByPk(req.params.id, { paranoid: false });
+  if (!tx) throw notFoundError("Khong tim thay giao dich");
+  if (tx.userId !== req.user.id) throw forbiddenError();
+  if (!tx.deletedAt) throw badRequest("Giao dich chua bi xoa");
+
+  await sequelize.transaction(async (dbTx) => {
+    const oldValue = tx.toJSON();
+    await restoreTransactionWithBalance(tx, dbTx);
+    await writeActivityLog({
+      userId: req.user.id,
+      action: "restore",
+      entityType: "transaction",
+      entityId: tx.id,
+      payload: { oldValue, newValue: tx.toJSON() },
+      ipAddress: req.ip,
+      transaction: dbTx,
+    });
+  });
+
+  const full = await Transaction.findByPk(tx.id, {
+    include: transactionInclude,
+  });
+  return ok(res, { transaction: full }, "Da khoi phuc giao dich");
 });
 
 // ===== Helper: thu nhap theo ngay =====

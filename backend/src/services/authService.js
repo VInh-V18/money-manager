@@ -7,24 +7,33 @@ import {
   User,
   Otp,
   RefreshToken,
+  LoginHistory,
+  ActivityLog,
   Category,
   sequelize,
 } from "../models/index.js";
 import { hashPassword, comparePassword } from "../utils/bcrypt.js";
-import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
-import { sendOtpEmail } from "./mailService.js";
 import {
-  AppError,
+  signAccessToken,
+  signRefreshToken,
+  sign2FAChallengeToken,
+  verify2FAChallengeToken,
+} from "../utils/jwt.js";
+import { verify2FAToken, useBackupCode } from "./twoFactorService.js";
+import { sendOtpEmail } from "./mailService.js";
+import env from "../config/env.js";
+import {
   badRequest,
   unauthorizedError,
   notFoundError,
   conflictError,
 } from "../utils/errors.js";
-import env from "../config/env.js";
 import { addDays } from "../utils/date.js";
 
 const OTP_TTL_MINUTES = 10;
 const RESET_TOKEN_TTL_MINUTES = 15;
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCK_MINUTES = 15;
 
 const DEFAULT_INCOME_CATS = [
   { name: "Luong", icon: "briefcase", color: "#10B981" },
@@ -51,18 +60,139 @@ const DEFAULT_EXPENSE_CATS = [
 ];
 
 const generateOtp = () =>
-  String(Math.floor(100000 + Math.random() * 900000));
+  String(crypto.randomInt(100000, 1000000)).padStart(6, "0");
 
 const generateResetToken = () =>
   crypto.randomBytes(32).toString("hex");
 
+const createDefaultCategories = (userId) => [
+  ...DEFAULT_INCOME_CATS.map((c, i) => ({
+    ...c,
+    userId,
+    type: "income",
+    isSystem: true,
+    sortOrder: i,
+  })),
+  ...DEFAULT_EXPENSE_CATS.map((c, i) => ({
+    ...c,
+    userId,
+    type: "expense",
+    isSystem: true,
+    sortOrder: i,
+  })),
+];
+
+const assertStrongPassword = (password, { email, username } = {}) => {
+  const value = String(password || "");
+  const normalized = value.toLowerCase();
+  const weakPasswords = new Set([
+    "password",
+    "password123",
+    "12345678",
+    "123456789",
+    "qwerty123",
+    "admin123",
+    "demo1234",
+  ]);
+
+  if (value.length < 8) {
+    throw badRequest("Mat khau phai co toi thieu 8 ky tu");
+  }
+  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value) || !/[^A-Za-z0-9]/.test(value)) {
+    throw badRequest("Mat khau phai co chu hoa, chu thuong, so va ky tu dac biet");
+  }
+  if (weakPasswords.has(normalized)) {
+    throw badRequest("Mat khau qua yeu, vui long chon mat khau kho doan hon");
+  }
+  const emailName = email ? String(email).split("@")[0].toLowerCase() : "";
+  const usernameValue = username ? String(username).toLowerCase() : "";
+  if ((emailName && normalized.includes(emailName)) || (usernameValue && normalized.includes(usernameValue))) {
+    throw badRequest("Mat khau khong duoc chua email hoac username");
+  }
+};
+
+const safeUserJson = (user) => {
+  const safeUser = user.toJSON();
+  delete safeUser.hashedPassword;
+  return safeUser;
+};
+
+const getClientInfo = (userAgent = "") => {
+  const ua = String(userAgent || "");
+  const browser =
+    ua.includes("Edg/")
+      ? "Microsoft Edge"
+      : ua.includes("Chrome/")
+        ? "Chrome"
+        : ua.includes("Firefox/")
+          ? "Firefox"
+          : ua.includes("Safari/")
+            ? "Safari"
+            : "Unknown";
+  const os =
+    ua.includes("Windows")
+      ? "Windows"
+      : ua.includes("Android")
+        ? "Android"
+        : ua.includes("iPhone") || ua.includes("iPad")
+          ? "iOS"
+          : ua.includes("Mac OS")
+            ? "macOS"
+            : ua.includes("Linux")
+              ? "Linux"
+              : "Unknown";
+  const deviceName = ua.includes("Mobile") || ua.includes("Android") || ua.includes("iPhone")
+    ? "Mobile"
+    : "Desktop";
+  return { browser, os, deviceName };
+};
+
+const recordLoginHistory = async ({
+  userId,
+  email,
+  status,
+  reason,
+  userAgent,
+  ipAddress,
+}) => {
+  const clientInfo = getClientInfo(userAgent);
+  await LoginHistory.create({
+    userId,
+    email,
+    status,
+    reason,
+    userAgent: userAgent?.slice(0, 500),
+    ipAddress,
+    ...clientInfo,
+  }).catch(() => {});
+};
+
+const issueSession = async (user, { userAgent, ipAddress } = {}) => {
+  const accessToken = signAccessToken({ id: user.id });
+  const refreshToken = signRefreshToken({ id: user.id });
+  const clientInfo = getClientInfo(userAgent);
+
+  await RefreshToken.create({
+    userId: user.id,
+    token: refreshToken,
+    userAgent: userAgent?.slice(0, 500),
+    ipAddress,
+    ...clientInfo,
+    lastActiveAt: new Date(),
+    expiresAt: addDays(new Date(), 7),
+  });
+
+  return { user: safeUserJson(user), accessToken, refreshToken };
+};
+
 /**
  * Dang ky:
- *   - Tao user (chua verify)
- *   - Tao OTP + gui email
+ *   - Tao user da verify
  *   - Tao 18 danh muc mac dinh (10 chi + 8 thu) -> de user dung ngay
  */
 export const signUpService = async ({ username, email, password, displayName }) => {
+  assertStrongPassword(password, { email, username });
+
   // check trung username/email
   const existing = await User.findOne({
     where: { [Op.or]: [{ email }, { username }] },
@@ -83,49 +213,14 @@ export const signUpService = async ({ username, email, password, displayName }) 
         email,
         hashedPassword: await hashPassword(password),
         displayName,
-        isVerified: false,
+        isVerified: true,
+        passwordChangedAt: new Date(),
       },
       { transaction: dbTx }
     );
 
     // tao danh muc mac dinh cho user moi
-    const cats = [
-      ...DEFAULT_INCOME_CATS.map((c, i) => ({
-        ...c,
-        userId: user.id,
-        type: "income",
-        isSystem: true,
-        sortOrder: i,
-      })),
-      ...DEFAULT_EXPENSE_CATS.map((c, i) => ({
-        ...c,
-        userId: user.id,
-        type: "expense",
-        isSystem: true,
-        sortOrder: i,
-      })),
-    ];
-    await Category.bulkCreate(cats, { transaction: dbTx });
-
-    // tao OTP
-    const code = generateOtp();
-    await Otp.create(
-      {
-        userId: user.id,
-        purpose: "verify_email",
-        code,
-        expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
-      },
-      { transaction: dbTx }
-    );
-
-    // gui mail (ngoai transaction de neu mail loi van OK)
-    sendOtpEmail({
-      to: email,
-      code,
-      purpose: "verify_email",
-      displayName,
-    }).catch((e) => console.error("Mail loi:", e.message));
+    await Category.bulkCreate(createDefaultCategories(user.id), { transaction: dbTx });
 
     return user;
   });
@@ -189,12 +284,12 @@ export const resendOtpService = async ({ email, purpose }) => {
     expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
   });
 
-  sendOtpEmail({
+  await sendOtpEmail({
     to: email,
     code,
     purpose,
     displayName: user.displayName,
-  }).catch((e) => console.error("Mail loi:", e.message));
+  });
 
   return { sent: true };
 };
@@ -209,6 +304,10 @@ export const forgotPasswordService = async ({ email }) => {
 export const resetPasswordService = async ({ email, resetToken, newPassword }) => {
   const user = await User.findOne({ where: { email } });
   if (!user) throw notFoundError("Email khong ton tai");
+  assertStrongPassword(newPassword, { email: user.email, username: user.username });
+
+  const reused = await comparePassword(newPassword, user.hashedPassword);
+  if (reused) throw badRequest("Mat khau moi khong duoc trung mat khau cu");
 
   const tokenRow = await Otp.findOne({
     where: {
@@ -224,13 +323,18 @@ export const resetPasswordService = async ({ email, resetToken, newPassword }) =
 
   await sequelize.transaction(async (dbTx) => {
     await user.update(
-      { hashedPassword: await hashPassword(newPassword) },
+      {
+        hashedPassword: await hashPassword(newPassword),
+        failedLoginCount: 0,
+        lockedUntil: null,
+        passwordChangedAt: new Date(),
+      },
       { transaction: dbTx }
     );
     await tokenRow.update({ used: true }, { transaction: dbTx });
     // logout het thiet bi cu
     await RefreshToken.update(
-      { revoked: true },
+      { revoked: true, revokedAt: new Date() },
       { where: { userId: user.id, revoked: false }, transaction: dbTx }
     );
   });
@@ -246,34 +350,292 @@ export const signInService = async ({ identifier, password, userAgent, ipAddress
       [Op.or]: [{ email: identifier }, { username: identifier }],
     },
   });
-  if (!user) throw unauthorizedError("Sai thong tin dang nhap");
+  if (!user) {
+    await recordLoginHistory({
+      email: identifier,
+      status: "FAILED_USER",
+      reason: "User not found",
+      userAgent,
+      ipAddress,
+    });
+    throw unauthorizedError("Sai thong tin dang nhap");
+  }
+
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    await recordLoginHistory({
+      userId: user.id,
+      email: user.email,
+      status: "LOCKED",
+      reason: "Account temporarily locked",
+      userAgent,
+      ipAddress,
+    });
+    throw unauthorizedError("Tai khoan dang bi khoa tam thoi. Vui long thu lai sau");
+  }
 
   const ok = await comparePassword(password, user.hashedPassword);
-  if (!ok) throw unauthorizedError("Sai thong tin dang nhap");
-
-  if (!user.isVerified) {
-    throw new AppError("Tai khoan chua xac thuc email", 403, {
-      requireVerification: true,
+  if (!ok) {
+    const failedLoginCount = Number(user.failedLoginCount || 0) + 1;
+    const shouldLock = failedLoginCount >= MAX_FAILED_LOGIN_ATTEMPTS;
+    await user.update({
+      failedLoginCount,
+      lockedUntil: shouldLock
+        ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000)
+        : user.lockedUntil,
+    });
+    await recordLoginHistory({
+      userId: user.id,
       email: user.email,
+      status: shouldLock ? "LOCKED" : "FAILED_PASSWORD",
+      reason: shouldLock ? "Too many failed password attempts" : "Wrong password",
+      userAgent,
+      ipAddress,
+    });
+    throw unauthorizedError(
+      shouldLock
+        ? `Sai mat khau qua ${MAX_FAILED_LOGIN_ATTEMPTS} lan. Tai khoan bi khoa ${LOCK_MINUTES} phut`
+        : "Sai thong tin dang nhap"
+    );
+  }
+
+  if (user.failedLoginCount || user.lockedUntil) {
+    await user.update({ failedLoginCount: 0, lockedUntil: null });
+  }
+
+  // Neu 2FA duoc bat, tra challenge token thay vi tao phien ngay
+  if (user.twoFactorEnabled) {
+    const twoFactorToken = sign2FAChallengeToken(user.id);
+    return { requires2FA: true, twoFactorToken };
+  }
+
+  const session = await issueSession(user, { userAgent, ipAddress });
+  await recordLoginHistory({
+    userId: user.id,
+    email: user.email,
+    status: "SUCCESS",
+    userAgent,
+    ipAddress,
+  });
+  return session;
+};
+
+/**
+ * Buoc 2 dang nhap khi 2FA duoc bat
+ * token: ma TOTP 6 chu so, hoac backup code
+ * twoFactorToken: challenge JWT tu buoc 1
+ */
+export const signInWith2FAService = async ({
+  twoFactorToken,
+  token,
+  useBackup = false,
+  userAgent,
+  ipAddress,
+}) => {
+  let payload;
+  try {
+    payload = verify2FAChallengeToken(twoFactorToken);
+  } catch {
+    throw unauthorizedError("2FA challenge token khong hop le hoac da het han");
+  }
+
+  const userId = payload.id;
+
+  if (useBackup) {
+    await useBackupCode(userId, token);
+  } else {
+    await verify2FAToken(userId, token);
+  }
+
+  const user = await User.findByPk(userId);
+  const session = await issueSession(user, { userAgent, ipAddress });
+  await recordLoginHistory({
+    userId: user.id,
+    email: user.email,
+    status: "SUCCESS",
+    userAgent,
+    ipAddress,
+  });
+  return session;
+};
+
+const oauthProviders = {
+  google: {
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+    profileUrl: "https://www.googleapis.com/oauth2/v3/userinfo",
+    clientId: () => env.GOOGLE_CLIENT_ID,
+    clientSecret: () => env.GOOGLE_CLIENT_SECRET,
+    scope: "openid email profile",
+    mapProfile: (profile) => ({
+      email: profile.email,
+      displayName: profile.name || profile.email,
+      avatarUrl: profile.picture || null,
+    }),
+  },
+  facebook: {
+    authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
+    tokenUrl: "https://graph.facebook.com/v19.0/oauth/access_token",
+    profileUrl: "https://graph.facebook.com/me?fields=id,name,email,picture.type(large)",
+    clientId: () => env.FACEBOOK_CLIENT_ID,
+    clientSecret: () => env.FACEBOOK_CLIENT_SECRET,
+    scope: "email,public_profile",
+    mapProfile: (profile) => ({
+      email: profile.email,
+      displayName: profile.name || profile.email,
+      avatarUrl: profile.picture?.data?.url || null,
+    }),
+  },
+  github: {
+    authUrl: "https://github.com/login/oauth/authorize",
+    tokenUrl: "https://github.com/login/oauth/access_token",
+    profileUrl: "https://api.github.com/user",
+    emailUrl: "https://api.github.com/user/emails",
+    clientId: () => env.GITHUB_CLIENT_ID,
+    clientSecret: () => env.GITHUB_CLIENT_SECRET,
+    scope: "read:user user:email",
+    mapProfile: (profile, email) => ({
+      email,
+      displayName: profile.name || profile.login || email,
+      avatarUrl: profile.avatar_url || null,
+    }),
+  },
+};
+
+const getOAuthProvider = (provider) => {
+  const config = oauthProviders[provider];
+  if (!config) throw badRequest("Nha cung cap OAuth khong hop le");
+  if (!config.clientId() || !config.clientSecret()) {
+    throw badRequest(`Chua cau hinh OAuth ${provider}`);
+  }
+  return config;
+};
+
+export const getOAuthStartUrl = ({ provider, redirectUri, state }) => {
+  const config = getOAuthProvider(provider);
+  const params = new URLSearchParams({
+    client_id: config.clientId(),
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: config.scope,
+    state,
+  });
+  if (provider === "google") {
+    params.set("access_type", "offline");
+    params.set("prompt", "select_account");
+  }
+  return `${config.authUrl}?${params.toString()}`;
+};
+
+const exchangeOAuthCode = async ({ provider, code, redirectUri }) => {
+  const config = getOAuthProvider(provider);
+  const params = new URLSearchParams({
+    client_id: config.clientId(),
+    client_secret: config.clientSecret(),
+    code,
+    redirect_uri: redirectUri,
+    grant_type: "authorization_code",
+  });
+
+  const response = await fetch(config.tokenUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) {
+    throw unauthorizedError(data.error_description || "Khong lay duoc OAuth access token");
+  }
+  return data.access_token;
+};
+
+const fetchOAuthProfile = async (provider, accessToken) => {
+  const config = getOAuthProvider(provider);
+  const profileRes = await fetch(config.profileUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "User-Agent": "money-manager",
+    },
+  });
+  const profile = await profileRes.json().catch(() => ({}));
+  if (!profileRes.ok) throw unauthorizedError("Khong lay duoc thong tin OAuth user");
+
+  if (provider !== "github") return config.mapProfile(profile);
+
+  const emailRes = await fetch(config.emailUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "User-Agent": "money-manager",
+    },
+  });
+  const emails = await emailRes.json().catch(() => []);
+  const primary = Array.isArray(emails)
+    ? emails.find((item) => item.primary && item.verified) || emails.find((item) => item.verified)
+    : null;
+  return config.mapProfile(profile, primary?.email || profile.email);
+};
+
+const makeOAuthUsername = async (email) => {
+  const base = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 40) || "oauth_user";
+  let username = base;
+  let index = 0;
+  while (await User.findOne({ where: { username } })) {
+    index += 1;
+    username = `${base}_${index}`;
+  }
+  return username;
+};
+
+export const signInWithOAuthService = async ({
+  provider,
+  code,
+  redirectUri,
+  userAgent,
+  ipAddress,
+}) => {
+  const oauthToken = await exchangeOAuthCode({ provider, code, redirectUri });
+  const profile = await fetchOAuthProfile(provider, oauthToken);
+  if (!profile.email) throw unauthorizedError("Tai khoan OAuth khong co email da xac thuc");
+
+  let user = await User.findOne({ where: { email: profile.email } });
+  if (!user) {
+    user = await sequelize.transaction(async (dbTx) => {
+      const createdUser = await User.create(
+        {
+          username: await makeOAuthUsername(profile.email),
+          email: profile.email,
+          hashedPassword: await hashPassword(crypto.randomBytes(32).toString("hex")),
+          displayName: profile.displayName || profile.email,
+          avatarUrl: profile.avatarUrl,
+          isVerified: true,
+          passwordChangedAt: new Date(),
+        },
+        { transaction: dbTx }
+      );
+      await Category.bulkCreate(createDefaultCategories(createdUser.id), { transaction: dbTx });
+      return createdUser;
+    });
+  } else {
+    await user.update({
+      isVerified: true,
+      displayName: user.displayName || profile.displayName,
+      avatarUrl: user.avatarUrl || profile.avatarUrl,
     });
   }
 
-  const accessToken = signAccessToken({ id: user.id });
-  const refreshToken = signRefreshToken({ id: user.id });
-
-  await RefreshToken.create({
+  const session = await issueSession(user, { userAgent, ipAddress });
+  await recordLoginHistory({
     userId: user.id,
-    token: refreshToken,
-    userAgent: userAgent?.slice(0, 500),
+    email: user.email,
+    status: "OAUTH_SUCCESS",
+    userAgent,
     ipAddress,
-    expiresAt: addDays(new Date(), 7),
   });
-
-  // strip password
-  const safeUser = user.toJSON();
-  delete safeUser.hashedPassword;
-
-  return { user: safeUser, accessToken, refreshToken };
+  return session;
 };
 
 export const refreshTokenService = async (oldToken) => {
@@ -300,6 +662,7 @@ export const refreshTokenService = async (oldToken) => {
   const user = await User.findByPk(row.userId);
   if (!user) throw unauthorizedError("User khong ton tai");
 
+  await row.update({ lastActiveAt: new Date() });
   const accessToken = signAccessToken({ id: user.id });
   return { accessToken };
 };
@@ -307,9 +670,93 @@ export const refreshTokenService = async (oldToken) => {
 export const signOutService = async (refreshToken) => {
   if (!refreshToken) return;
   await RefreshToken.update(
-    { revoked: true },
+    { revoked: true, revokedAt: new Date() },
     { where: { token: refreshToken } }
   );
+};
+
+export const listSessionsService = async (userId, currentRefreshToken) => {
+  const rows = await RefreshToken.findAll({
+    where: {
+      userId,
+      revoked: false,
+      expiresAt: { [Op.gt]: new Date() },
+    },
+    order: [["lastActiveAt", "DESC"], ["createdAt", "DESC"]],
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    deviceName: row.deviceName,
+    browser: row.browser,
+    os: row.os,
+    ipAddress: row.ipAddress,
+    lastActiveAt: row.lastActiveAt,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    isCurrent: currentRefreshToken ? row.token === currentRefreshToken : false,
+  }));
+};
+
+export const revokeSessionService = async (userId, sessionId, currentRefreshToken) => {
+  const row = await RefreshToken.findOne({
+    where: { id: sessionId, userId, revoked: false },
+  });
+  if (!row) throw notFoundError("Khong tim thay phien dang nhap");
+  await row.update({ revoked: true, revokedAt: new Date() });
+  return { revokedCurrent: currentRefreshToken ? row.token === currentRefreshToken : false };
+};
+
+export const revokeOtherSessionsService = async (userId, currentRefreshToken) => {
+  const where = { userId, revoked: false };
+  if (currentRefreshToken) where.token = { [Op.ne]: currentRefreshToken };
+  const [count] = await RefreshToken.update(
+    { revoked: true, revokedAt: new Date() },
+    { where }
+  );
+  return { revokedCount: count };
+};
+
+export const listLoginHistoryService = async (userId, { page = 1, limit = 20, status } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+  const where = { userId };
+  if (status) where.status = status;
+  const { rows, count } = await LoginHistory.findAndCountAll({
+    where,
+    order: [["createdAt", "DESC"]],
+    limit: safeLimit,
+    offset: (safePage - 1) * safeLimit,
+  });
+  return {
+    items: rows,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: count,
+      totalPages: Math.ceil(count / safeLimit),
+    },
+  };
+};
+
+export const listActivityLogsService = async (userId, { page = 1, limit = 20 } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+  const { rows, count } = await ActivityLog.findAndCountAll({
+    where: { userId },
+    order: [["createdAt", "DESC"]],
+    limit: safeLimit,
+    offset: (safePage - 1) * safeLimit,
+  });
+  return {
+    items: rows,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: count,
+      totalPages: Math.ceil(count / safeLimit),
+    },
+  };
 };
 
 export const changePasswordService = async (userId, { currentPassword, newPassword }) => {
@@ -318,15 +765,24 @@ export const changePasswordService = async (userId, { currentPassword, newPasswo
 
   const ok = await comparePassword(currentPassword, user.hashedPassword);
   if (!ok) throw badRequest("Mat khau hien tai khong dung");
+  assertStrongPassword(newPassword, { email: user.email, username: user.username });
+
+  const reused = await comparePassword(newPassword, user.hashedPassword);
+  if (reused) throw badRequest("Mat khau moi khong duoc trung mat khau cu");
 
   await sequelize.transaction(async (dbTx) => {
     await user.update(
-      { hashedPassword: await hashPassword(newPassword) },
+      {
+        hashedPassword: await hashPassword(newPassword),
+        failedLoginCount: 0,
+        lockedUntil: null,
+        passwordChangedAt: new Date(),
+      },
       { transaction: dbTx }
     );
     // logout het thiet bi khac
     await RefreshToken.update(
-      { revoked: true },
+      { revoked: true, revokedAt: new Date() },
       { where: { userId, revoked: false }, transaction: dbTx }
     );
   });

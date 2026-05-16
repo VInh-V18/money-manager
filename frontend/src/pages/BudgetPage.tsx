@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, AlertTriangle, PiggyBank } from "lucide-react";
+import { Plus, Pencil, Trash2, AlertTriangle, PiggyBank, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,13 +31,19 @@ const schema = z.object({
   strictMode: z.boolean(),
 });
 type FormData = z.infer<typeof schema>;
+type BudgetListResponse = {
+  items?: Budget[];
+  budgets?: Budget[];
+  data?: Budget[];
+};
+type BudgetSuggestion = Awaited<ReturnType<typeof budgetService.suggestions>>["items"][number];
 
 const PERIOD_LABELS: Record<BudgetPeriod, string> = {
   daily: "Hàng ngày",
   weekly: "Hàng tuần",
   monthly: "Hàng tháng",
   yearly: "Hàng năm",
-  custom: "Tuỳ chỉnh",
+  custom: "Tùy chỉnh",
 };
 
 export default function BudgetPage() {
@@ -49,6 +55,8 @@ export default function BudgetPage() {
   const [editing, setEditing] = useState<Budget | null>(null);
   const [deleting, setDeleting] = useState<Budget | null>(null);
   const [delLoading, setDelLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<BudgetSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -71,14 +79,15 @@ export default function BudgetPage() {
       budgetService.summary(),
     ]);
 
-    if (Array.isArray(data)) {
+    const budgetData = data as Budget[] | BudgetListResponse;
+    if (Array.isArray(budgetData)) {
       setItems(data);
-    } else if (Array.isArray((data as any)?.items)) {
-      setItems((data as any).items);
-    } else if (Array.isArray((data as any)?.budgets)) {
-      setItems((data as any).budgets);
-    } else if (Array.isArray((data as any)?.data)) {
-      setItems((data as any).data);
+    } else if (Array.isArray(budgetData.items)) {
+      setItems(budgetData.items);
+    } else if (Array.isArray(budgetData.budgets)) {
+      setItems(budgetData.budgets);
+    } else if (Array.isArray(budgetData.data)) {
+      setItems(budgetData.data);
     } else {
       setItems([]);
     }
@@ -124,6 +133,33 @@ export default function BudgetPage() {
     setFormOpen(true);
   };
 
+  const openSuggestion = (item: BudgetSuggestion) => {
+    setEditing(null);
+    reset({
+      name: item.category ? `Ngân sách ${item.category.name}` : "Ngân sách đề xuất",
+      categoryId: item.categoryId,
+      amount: Number(item.suggestedAmount),
+      period: "monthly",
+      startDate: toISODate(new Date()),
+      warnThreshold: 80,
+      strictMode: false,
+    });
+    setFormOpen(true);
+  };
+
+  const loadSuggestions = async () => {
+    setSuggestionsLoading(true);
+    try {
+      const data = await budgetService.suggestions();
+      setSuggestions(data.items);
+      if (data.items.length === 0) toast.info("Chưa đủ dữ liệu chi tiêu tháng trước để gợi ý");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     try {
       const payload = { ...data, categoryId: data.categoryId || null };
@@ -162,11 +198,42 @@ export default function BudgetPage() {
         title="Ngân sách"
         description="Đặt mức chi tối đa và theo dõi tiến độ"
         action={
-          <Button onClick={() => openForm(null)}>
-            <Plus className="size-4" /> Thêm ngân sách
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={loadSuggestions} loading={suggestionsLoading}>
+              <Sparkles className="size-4" /> Gợi ý
+            </Button>
+            <Button onClick={() => openForm(null)}>
+              <Plus className="size-4" /> Thêm ngân sách
+            </Button>
+          </div>
         }
       />
+
+      {suggestions.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Gợi ý ngân sách tháng sau</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {suggestions.map((item) => (
+              <div key={item.categoryId} className="rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{item.category?.name || "Danh mục"}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Tháng trước chi {formatCurrency(item.spent)} trong {item.count} giao dịch.
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.reason}</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => openSuggestion(item)}>
+                    {formatCurrency(item.suggestedAmount)}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary card */}
       {summary && summary.count > 0 && (
@@ -358,7 +425,7 @@ export default function BudgetPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -368,7 +435,7 @@ export default function BudgetPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá ngân sách?"
+        title="Xóa ngân sách?"
         description={`Bạn có chắc muốn xoá "${deleting?.name}"?`}
         loading={delLoading}
         onConfirm={handleDelete}

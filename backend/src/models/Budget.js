@@ -24,6 +24,8 @@ export default (sequelize) => {
       strictMode: { type: DataTypes.BOOLEAN, defaultValue: false },
 
       isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+      rolloverEnabled: { type: DataTypes.BOOLEAN, defaultValue: false },
+      rolloverAmount: { type: DataTypes.DECIMAL(18, 2), defaultValue: 0 },
       note: { type: DataTypes.STRING(500), allowNull: true },
     },
     {
@@ -33,6 +35,7 @@ export default (sequelize) => {
       indexes: [
         { fields: ["userId"] },
         { fields: ["userId", "isActive"] },
+        { fields: ["userId", "isActive", "categoryId"] },
         { fields: ["categoryId"] },
       ],
     }

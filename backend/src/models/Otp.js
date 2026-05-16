@@ -11,7 +11,7 @@ export default (sequelize) => {
         type: DataTypes.ENUM("verify_email", "reset_password"),
         allowNull: false,
       },
-      code: { type: DataTypes.STRING(10), allowNull: false },
+      code: { type: DataTypes.STRING(128), allowNull: false },
       expiresAt: { type: DataTypes.DATE, allowNull: false },
       used: { type: DataTypes.BOOLEAN, defaultValue: false },
     },

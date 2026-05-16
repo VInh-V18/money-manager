@@ -29,6 +29,8 @@ const authLimiter = rateLimit({
 // ===== Public =====
 router.post("/signup", authLimiter, validate(signUpSchema), ctrl.signUp);
 router.post("/signin", authLimiter, validate(signInSchema), ctrl.signIn);
+router.get("/oauth/:provider", authLimiter, ctrl.oauthStart);
+router.get("/oauth/:provider/callback", authLimiter, ctrl.oauthCallback);
 router.post("/signout", ctrl.signOut);
 router.post("/refresh", ctrl.refreshToken);
 
@@ -75,5 +77,19 @@ router.put(
   ctrl.changePassword
 );
 router.post("/avatar", uploadImage.single("avatar"), ctrl.uploadAvatar);
+router.get("/sessions", ctrl.listSessions);
+router.delete("/sessions/others", ctrl.revokeOtherSessions);
+router.delete("/sessions/:id", ctrl.revokeSession);
+router.get("/login-history", ctrl.loginHistory);
+router.get("/activity-logs", ctrl.activityLogs);
+
+// ===== 2FA routes (protected) =====
+router.get("/2fa/setup", ctrl.setup2FA);
+router.post("/2fa/enable", ctrl.enable2FAHandler);
+router.post("/2fa/disable", ctrl.disable2FAHandler);
+router.post("/2fa/backup-codes/regenerate", ctrl.regenerateBackupCodesHandler);
+
+// ===== 2FA signin (public - buoc 2 sau khi password hop le) =====
+router.post("/2fa/verify", authLimiter, ctrl.signInWith2FA);
 
 export default router;

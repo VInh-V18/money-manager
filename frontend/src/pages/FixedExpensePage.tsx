@@ -40,7 +40,7 @@ const FREQ_LABELS: Record<BudgetPeriod, string> = {
   weekly: "Hàng tuần",
   monthly: "Hàng tháng",
   yearly: "Hàng năm",
-  custom: "Tuỳ chỉnh",
+  custom: "Tùy chỉnh",
 };
 
 export default function FixedExpensePage() {
@@ -175,7 +175,7 @@ export default function FixedExpensePage() {
     <div>
       <PageHeader
         title="Chi cố định"
-        description="Hoá đơn định kỳ tự sinh giao dịch khi đến hạn"
+        description="Hóa đơn định kỳ tự sinh giao dịch khi đến hạn"
         action={
           <div className="flex gap-2">
             <Button variant="outline" onClick={runGenerate} loading={generating}>
@@ -358,7 +358,7 @@ export default function FixedExpensePage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -368,7 +368,7 @@ export default function FixedExpensePage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá chi cố định?"
+        title="Xóa chi cố định?"
         loading={delLoading}
         onConfirm={handleDelete}
       />
