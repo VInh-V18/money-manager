@@ -10,8 +10,16 @@ export interface AdminDashboard {
   failedLoginsToday: number;
 }
 
+export interface AdminUserGrowth {
+  date: string;
+  count: number | string;
+}
+
 export const adminService = {
   dashboard: () => api.get("/admin/dashboard").then((r) => r.data.data as AdminDashboard),
+
+  userGrowth: () =>
+    api.get("/admin/user-growth").then((r) => r.data.data.items as AdminUserGrowth[]),
 
   users: (page = 1, limit = 20, q = "", role = "") =>
     api

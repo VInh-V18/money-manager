@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/common/PageHeader";
-import { adminService, type AdminDashboard } from "@/services/adminService";
+import { adminService, type AdminDashboard, type AdminUserGrowth } from "@/services/adminService";
 import { getErrorMessage } from "@/lib/axios";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { formatDateTime } from "@/lib/utils";
@@ -32,6 +32,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [userGrowth, setUserGrowth] = useState<AdminUserGrowth[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState<User["role"] | "all">("all");
   const [feedbackStatus, setFeedbackStatus] = useState<Feedback["status"] | "all">("all");
@@ -55,12 +56,14 @@ export default function AdminPage() {
       adminService.users(1, 8),
       adminService.feedback(1, 12),
       adminService.systemLogs(1, 12),
+      adminService.userGrowth(),
     ])
-      .then(([stats, userData, feedbackData, logData]) => {
+      .then(([stats, userData, feedbackData, logData, growthData]) => {
         setDashboard(stats);
         setUsers(userData.items);
         setFeedback(feedbackData.items);
         setLogs(logData.items);
+        setUserGrowth(growthData);
       })
       .catch((err) => toast.error(getErrorMessage(err)))
       .finally(() => setLoading(false));
@@ -115,6 +118,33 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Tang truong user 30 ngay</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {userGrowth.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Chua co du lieu tang truong.</p>
+              ) : (
+                <div className="space-y-2">
+                  {userGrowth.map((item) => {
+                    const count = Number(item.count) || 0;
+                    const max = Math.max(...userGrowth.map((row) => Number(row.count) || 0), 1);
+                    return (
+                      <div key={item.date} className="grid grid-cols-[88px_1fr_36px] items-center gap-3 text-sm">
+                        <span className="text-xs text-muted-foreground">{item.date}</span>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (count / max) * 100)}%` }} />
+                        </div>
+                        <span className="text-right font-medium">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
