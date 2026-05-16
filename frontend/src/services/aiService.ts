@@ -62,12 +62,19 @@ export interface AiSpendingTotalResponse {
   count: number;
 }
 
+export interface AiClassificationResponse {
+  type: "income" | "expense";
+  category: { id: number; name: string; type: "income" | "expense"; icon: string; color: string } | null;
+  confidence: number;
+  reason: string;
+}
+
 export const aiService = {
   context: () => api.get("/ai/context").then((r) => r.data.data as AiFinancialContext),
   chat: (message: string, mode: AiMode, history: AiChatHistoryItem[] = []) =>
     api.post("/ai/chat", { message, mode, history }).then((r) => r.data.data as AiChatResponse),
   classify: (text: string, type?: "income" | "expense") =>
-    api.post("/ai/classify", { text, type }).then((r) => r.data.data),
+    api.post("/ai/classify", { text, type }).then((r) => r.data.data as AiClassificationResponse),
   naturalTransaction: (text: string) =>
     api
       .post("/ai/natural-transaction", { text })

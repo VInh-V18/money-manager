@@ -9,6 +9,7 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CurrencyInput } from "@/components/common/CurrencyInput";
 import { transactionService } from "@/services/transactionService";
+import { aiService } from "@/services/aiService";
 import { walletService, categoryService } from "@/services/walletService";
 import { getErrorMessage } from "@/lib/axios";
 import { getBackendAssetUrl } from "@/lib/env";
@@ -40,6 +41,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
   const [categories, setCategories] = useState<Category[]>([]);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | undefined>();
+  const [classifying, setClassifying] = useState(false);
 
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -56,6 +58,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
   });
 
   const txType = watch("type");
+  const description = watch("description");
 
   useEffect(() => {
     if (!open) return;
@@ -142,6 +145,29 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
     setValue("receiptUrl", null, { shouldDirty: true });
   };
 
+  const classifyCategory = async () => {
+    const text = (description || "").trim();
+    if (!text) {
+      toast.error("Nhap mo ta truoc khi dung AI phan loai");
+      return;
+    }
+    setClassifying(true);
+    try {
+      const result = await aiService.classify(text, txType);
+      setValue("type", result.type, { shouldDirty: true });
+      if (result.category?.id) {
+        setValue("categoryId", result.category.id, { shouldDirty: true });
+        toast.success(`AI chon danh muc: ${result.category.name}`);
+      } else {
+        toast.info(result.reason || "AI chua tim thay danh muc phu hop");
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "AI chua phan loai duoc"));
+    } finally {
+      setClassifying(false);
+    }
+  };
+
   const filteredCats = categories.filter((c) => c.type === txType);
 
   return (
@@ -223,7 +249,12 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
               {errors.walletId && <p className="text-xs text-destructive">{errors.walletId.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label>Danh mục</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Danh mục</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={classifyCategory} loading={classifying}>
+                  AI phan loai
+                </Button>
+              </div>
               <Controller
                 control={control}
                 name="categoryId"
