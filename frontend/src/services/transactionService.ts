@@ -83,6 +83,7 @@ export const transactionService = {
     transactionDate: string;
     transactionTime?: string | null;
     receiptUrl?: string | null;
+    metadata?: Record<string, unknown> | null;
     allowNegative?: boolean;
     idempotencyKey?: string;
   }) =>

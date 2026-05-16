@@ -23,6 +23,7 @@ const schema = z.object({
   amount: z.number().positive("Số tiền phải > 0"),
   description: z.string().optional(),
   note: z.string().optional(),
+  tags: z.string().optional(),
   transactionDate: z.string(),
   transactionTime: z.string().nullable().optional(),
   receiptUrl: z.string().nullable().optional(),
@@ -53,6 +54,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       amount: 0,
       description: "",
       note: "",
+      tags: "",
       transactionDate: toISODate(new Date()),
       transactionTime: null,
       receiptUrl: null,
@@ -81,6 +83,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         amount: Number(transaction.amount),
         description: transaction.description || "",
         note: transaction.note || "",
+        tags: Array.isArray(transaction.metadata?.tags) ? transaction.metadata.tags.join(", ") : "",
         transactionDate: transaction.transactionDate,
         transactionTime: transaction.transactionTime?.slice(0, 5) || null,
         receiptUrl: transaction.receiptUrl || null,
@@ -94,6 +97,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         amount: 0,
         description: "",
         note: "",
+        tags: "",
         transactionDate: toISODate(new Date()),
         transactionTime: null,
         receiptUrl: null,
@@ -109,10 +113,18 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       if (receiptFile) {
         receiptUrl = await transactionService.uploadReceipt(receiptFile);
       }
+      const { tags, ...txData } = data;
       const payload = {
-        ...data,
-        categoryId: data.categoryId || null,
-        transactionTime: data.transactionTime || null,
+        ...txData,
+        categoryId: txData.categoryId || null,
+        transactionTime: txData.transactionTime || null,
+        metadata: {
+          ...(transaction?.metadata || {}),
+          tags: (tags || "")
+            .split(",")
+            .map((tag) => tag.trim().replace(/^#/, ""))
+            .filter(Boolean),
+        },
         receiptUrl,
       };
       if (isEdit) {
@@ -299,6 +311,11 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
           <div className="space-y-2">
             <Label>Ghi chú</Label>
             <Textarea {...register("note")} rows={2} placeholder="Tuỳ chọn" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <Input {...register("tags")} placeholder="VD: di_choi, hoc_tap, gia_dinh" />
           </div>
 
           <div className="space-y-2">

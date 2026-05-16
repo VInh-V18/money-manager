@@ -517,6 +517,11 @@ export default function TransactionPage() {
                       {tx.subType !== "regular" && tx.subType && (
                         <Badge variant="outline" className="text-[10px] py-0">{tx.subType}</Badge>
                       )}
+                      {Array.isArray(tx.metadata?.tags) && tx.metadata.tags.slice(0, 3).map((tag) => (
+                        <Badge key={String(tag)} variant="secondary" className="text-[10px] py-0">
+                          #{String(tag)}
+                        </Badge>
+                      ))}
                       {tx.receiptUrl && (
                         <a
                           href={getBackendAssetUrl(tx.receiptUrl)}
