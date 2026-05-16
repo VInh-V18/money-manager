@@ -24,6 +24,7 @@ const schema = z.object({
   description: z.string().optional(),
   note: z.string().optional(),
   transactionDate: z.string(),
+  transactionTime: z.string().nullable().optional(),
   receiptUrl: z.string().nullable().optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -53,6 +54,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       description: "",
       note: "",
       transactionDate: toISODate(new Date()),
+      transactionTime: null,
       receiptUrl: null,
     },
   });
@@ -80,6 +82,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         description: transaction.description || "",
         note: transaction.note || "",
         transactionDate: transaction.transactionDate,
+        transactionTime: transaction.transactionTime?.slice(0, 5) || null,
         receiptUrl: transaction.receiptUrl || null,
       });
       setReceiptPreview(getBackendAssetUrl(transaction.receiptUrl));
@@ -92,6 +95,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
         description: "",
         note: "",
         transactionDate: toISODate(new Date()),
+        transactionTime: null,
         receiptUrl: null,
       });
       setReceiptPreview(undefined);
@@ -108,6 +112,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       const payload = {
         ...data,
         categoryId: data.categoryId || null,
+        transactionTime: data.transactionTime || null,
         receiptUrl,
       };
       if (isEdit) {
@@ -280,9 +285,15 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
             <Input {...register("description")} placeholder="VD: Ăn trưa, đổ xăng..." />
           </div>
 
-          <div className="space-y-2">
-            <Label>Ngày</Label>
-            <Input type="date" {...register("transactionDate")} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Ngày</Label>
+              <Input type="date" {...register("transactionDate")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Gio</Label>
+              <Input type="time" {...register("transactionTime")} />
+            </div>
           </div>
 
           <div className="space-y-2">

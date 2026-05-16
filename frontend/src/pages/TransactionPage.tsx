@@ -500,6 +500,12 @@ export default function TransactionPage() {
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                       <span>{formatDate(tx.transactionDate)}</span>
+                      {tx.transactionTime && (
+                        <>
+                          <span>·</span>
+                          <span>{tx.transactionTime.slice(0, 5)}</span>
+                        </>
+                      )}
                       <span>·</span>
                       <span>{tx.Wallet?.name}</span>
                       {tx.Category?.name && (

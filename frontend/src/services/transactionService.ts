@@ -81,7 +81,7 @@ export const transactionService = {
     description?: string;
     note?: string;
     transactionDate: string;
-    transactionTime?: string;
+    transactionTime?: string | null;
     receiptUrl?: string | null;
     allowNegative?: boolean;
     idempotencyKey?: string;
