@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { FloatingAiChatbot } from "@/components/ai/FloatingAiChatbot";
 
 export function AppLayout() {
@@ -17,6 +18,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <MobileBottomNav />
       <FloatingAiChatbot />
     </div>
   );
