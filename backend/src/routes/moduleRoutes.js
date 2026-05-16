@@ -37,6 +37,7 @@ export const budgetRouter = express.Router();
 budgetRouter.use(protectedRoute);
 budgetRouter.get("/", budget.listBudgets);
 budgetRouter.get("/summary", budget.getBudgetSummary);
+budgetRouter.get("/suggestions", budget.suggestBudgets);
 budgetRouter.post("/", validate(createBudgetSchema), budget.createBudget);
 budgetRouter.get("/:id", budget.getBudget);
 budgetRouter.put("/:id", validate(updateBudgetSchema), budget.updateBudget);

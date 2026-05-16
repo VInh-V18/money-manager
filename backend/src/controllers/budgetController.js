@@ -1,7 +1,8 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok, created } from "../utils/response.js";
 import { notFoundError, forbiddenError } from "../utils/errors.js";
-import { Budget, Category } from "../models/index.js";
+import { Budget, Category, Transaction } from "../models/index.js";
+import { Op, col, fn } from "sequelize";
 import {
   calculateBudgetSpent,
   calculateBudgetsSummary,
@@ -27,6 +28,42 @@ export const getBudgetSummary = asyncHandler(async (req, res) => {
     warning,
     items,
   });
+});
+
+export const suggestBudgets = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const to = new Date(now.getFullYear(), now.getMonth(), 0);
+  const fromDate = from.toISOString().slice(0, 10);
+  const toDate = to.toISOString().slice(0, 10);
+
+  const rows = await Transaction.findAll({
+    where: {
+      userId: req.user.id,
+      type: "expense",
+      categoryId: { [Op.ne]: null },
+      transactionDate: { [Op.between]: [fromDate, toDate] },
+    },
+    attributes: ["categoryId", [fn("SUM", col("amount")), "spent"], [fn("COUNT", col("id")), "count"]],
+    include: [{ model: Category, attributes: ["id", "name", "icon", "color", "type"] }],
+    group: ["categoryId", "Category.id", "Category.name", "Category.icon", "Category.color", "Category.type"],
+    order: [[fn("SUM", col("amount")), "DESC"]],
+    limit: 8,
+  });
+
+  const items = rows.map((row) => {
+    const spent = Number(row.get("spent")) || 0;
+    return {
+      categoryId: row.categoryId,
+      category: row.Category,
+      spent,
+      count: Number(row.get("count")) || 0,
+      suggestedAmount: Math.max(50000, Math.round((spent * 0.9) / 10000) * 10000),
+      reason: "Dua tren chi tieu thang truoc, giam khoang 10% de tang tiet kiem.",
+    };
+  });
+
+  return ok(res, { items, range: { from: fromDate, to: toDate } });
 });
 
 export const getBudget = asyncHandler(async (req, res) => {

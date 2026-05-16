@@ -21,6 +21,18 @@ export const budgetService = {
       .get("/budgets")
       .then((r) => asArray<Budget>(r.data?.data?.items ?? r.data?.data?.budgets)),
   summary: () => api.get("/budgets/summary").then((r) => r.data.data as BudgetSummary),
+  suggestions: () =>
+    api.get("/budgets/suggestions").then((r) => r.data.data as {
+      items: Array<{
+        categoryId: number;
+        category: { id: number; name: string; icon: string; color: string; type: string } | null;
+        spent: number;
+        count: number;
+        suggestedAmount: number;
+        reason: string;
+      }>;
+      range: { from: string; to: string };
+    }),
   get: (id: number) => api.get(`/budgets/${id}`).then((r) => r.data.data.budget as Budget),
   create: (data: Partial<Budget>) =>
     api.post("/budgets", data).then((r) => r.data.data.budget as Budget),
