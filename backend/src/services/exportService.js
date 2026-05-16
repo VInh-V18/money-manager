@@ -187,6 +187,7 @@ export const exportTransactionsToCsv = async (userId, fromDate, toDate) => {
     "category",
     "description",
     "note",
+    "tags",
   ];
   const rows = txs.map((tx) => [
     tx.transactionDate,
@@ -197,6 +198,7 @@ export const exportTransactionsToCsv = async (userId, fromDate, toDate) => {
     tx.Category?.name || "",
     tx.description || "",
     tx.note || "",
+    Array.isArray(tx.metadata?.tags) ? tx.metadata.tags.join(";") : "",
   ]);
   return [headers, ...rows]
     .map((row) => row.map(csvEscape).join(","))
@@ -224,6 +226,10 @@ export const importTransactionsFromCsv = async (userId, text) => {
     const transactionDate = row.transactiondate || row.date || row.ngay || row["ngày"];
     const walletName = row.wallet || row.vi || row["ví"];
     const categoryName = row.category || row["danh muc"] || row["danh mục"];
+    const tags = String(row.tags || row.tag || "")
+      .split(/[;,]/)
+      .map((tag) => tag.trim().replace(/^#/, ""))
+      .filter(Boolean);
     const wallet = walletByName.get(String(walletName || "").trim().toLowerCase());
     const category = categoryName
       ? categoryByName.get(`${type}:${String(categoryName).trim().toLowerCase()}`)
@@ -255,6 +261,7 @@ export const importTransactionsFromCsv = async (userId, text) => {
             note: row.note || row["ghi chu"] || row["ghi chú"] || "",
             transactionDate,
             transactionTime: row.transactiontime || row.time || null,
+            metadata: tags.length ? { tags } : null,
           },
           dbTx,
           { allowNegative: true }
