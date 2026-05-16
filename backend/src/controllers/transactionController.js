@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { Op } from "sequelize";
+import { Op, col, fn, where as sqlWhere } from "sequelize";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok, created } from "../utils/response.js";
 import { notFoundError, forbiddenError, badRequest } from "../utils/errors.js";
@@ -66,6 +66,8 @@ export const listTransactions = asyncHandler(async (req, res) => {
     minAmount,
     maxAmount,
     search,
+    tag,
+    hasReceipt,
     sortBy,
     sortDir,
   } = req.query;
@@ -88,6 +90,17 @@ export const listTransactions = asyncHandler(async (req, res) => {
     where[Op.or] = [
       { description: { [Op.like]: `%${search}%` } },
       { note: { [Op.like]: `%${search}%` } },
+    ];
+  }
+  if (hasReceipt !== undefined) {
+    where.receiptUrl = hasReceipt ? { [Op.ne]: null } : null;
+  }
+  if (tag) {
+    where[Op.and] = [
+      ...(where[Op.and] || []),
+      sqlWhere(fn("JSON_SEARCH", col("metadata"), "one", tag, null, "$.tags[*]"), {
+        [Op.ne]: null,
+      }),
     ];
   }
 

@@ -76,6 +76,8 @@ export const listTransactionQuerySchema = z.object({
   minAmount: z.coerce.number().min(0).optional(),
   maxAmount: z.coerce.number().min(0).optional(),
   search: z.string().max(255).optional(),
+  tag: z.string().trim().max(80).optional(),
+  hasReceipt: z.coerce.boolean().optional(),
   // dat hang: createdAt | transactionDate | amount
   sortBy: z.enum(["transactionDate", "createdAt", "amount"]).default("transactionDate"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),

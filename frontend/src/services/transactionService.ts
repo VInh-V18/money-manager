@@ -28,6 +28,8 @@ export interface ListTxQuery {
   minAmount?: number;
   maxAmount?: number;
   search?: string;
+  tag?: string;
+  hasReceipt?: boolean;
   sortBy?: "transactionDate" | "createdAt" | "amount";
   sortDir?: "asc" | "desc";
 }

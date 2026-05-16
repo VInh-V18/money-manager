@@ -235,7 +235,14 @@ export default function TransactionPage() {
   };
 
   const activeFilterCount = [
-    filter.type, filter.walletId, filter.categoryId, filter.fromDate, filter.toDate, filter.search,
+    filter.type,
+    filter.walletId,
+    filter.categoryId,
+    filter.fromDate,
+    filter.toDate,
+    filter.search,
+    filter.tag,
+    filter.hasReceipt,
   ].filter(Boolean).length;
 
   return (
@@ -393,6 +400,30 @@ export default function TransactionPage() {
                   value={filter.toDate || ""}
                   onChange={(e) => updateFilter({ toDate: e.target.value || undefined })}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tag</Label>
+                <Input
+                  value={filter.tag || ""}
+                  onChange={(e) => updateFilter({ tag: e.target.value.trim() || undefined })}
+                  placeholder="VD: di_choi"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Hoa don</Label>
+                <Select
+                  value={filter.hasReceipt === undefined ? "all" : filter.hasReceipt ? "yes" : "no"}
+                  onValueChange={(v) => updateFilter({ hasReceipt: v === "all" ? undefined : v === "yes" })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tat ca</SelectItem>
+                    <SelectItem value="yes">Co hoa don</SelectItem>
+                    <SelectItem value="no">Khong hoa don</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex items-end">
