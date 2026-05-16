@@ -24,6 +24,8 @@ export default (sequelize) => {
       strictMode: { type: DataTypes.BOOLEAN, defaultValue: false },
 
       isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+      rolloverEnabled: { type: DataTypes.BOOLEAN, defaultValue: false },
+      rolloverAmount: { type: DataTypes.DECIMAL(18, 2), defaultValue: 0 },
       note: { type: DataTypes.STRING(500), allowNull: true },
     },
     {

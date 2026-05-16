@@ -4,15 +4,11 @@ import { notifyTransactionsChanged } from "@/lib/realtime";
 export type AiMode = "advisor" | "forecast" | "risk" | "budget" | "transaction_parser";
 export type AiChatRole = "user" | "assistant";
 
-export interface AiChatHistoryItem {
-  role: AiChatRole;
-  content: string;
-}
-
 export interface AiChatResponse {
   answer: string;
   mode: AiMode;
   model: string;
+  sessionId: number | null;
   usage?: {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
@@ -28,6 +24,26 @@ export interface AiChatResponse {
       transactionCount: number;
     };
   };
+}
+
+export interface AiChatSession {
+  id: number;
+  title: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiChatMessage {
+  id: number;
+  sessionId: number;
+  role: AiChatRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface AiChatSessionDetail {
+  session: AiChatSession;
+  messages: AiChatMessage[];
 }
 
 export interface AiFinancialContext {
@@ -71,8 +87,16 @@ export interface AiClassificationResponse {
 
 export const aiService = {
   context: () => api.get("/ai/context").then((r) => r.data.data as AiFinancialContext),
-  chat: (message: string, mode: AiMode, history: AiChatHistoryItem[] = []) =>
-    api.post("/ai/chat", { message, mode, history }).then((r) => r.data.data as AiChatResponse),
+  chat: (message: string, mode: AiMode = "advisor", sessionId?: number | null) =>
+    api.post("/ai/chat", { message, mode, sessionId: sessionId ?? null }).then((r) => r.data.data as AiChatResponse),
+
+  // Chat session management
+  listSessions: (page = 1, limit = 20) =>
+    api.get("/ai/sessions", { params: { page, limit } }).then((r) => r.data.data as { total: number; page: number; items: AiChatSession[] }),
+  getSession: (id: number) =>
+    api.get(`/ai/sessions/${id}`).then((r) => r.data.data as AiChatSessionDetail),
+  deleteSession: (id: number) =>
+    api.delete(`/ai/sessions/${id}`).then((r) => r.data.data as { deleted: boolean }),
   classify: (text: string, type?: "income" | "expense") =>
     api.post("/ai/classify", { text, type }).then((r) => r.data.data as AiClassificationResponse),
   naturalTransaction: (text: string) =>

@@ -83,4 +83,13 @@ router.delete("/sessions/:id", ctrl.revokeSession);
 router.get("/login-history", ctrl.loginHistory);
 router.get("/activity-logs", ctrl.activityLogs);
 
+// ===== 2FA routes (protected) =====
+router.get("/2fa/setup", ctrl.setup2FA);
+router.post("/2fa/enable", ctrl.enable2FAHandler);
+router.post("/2fa/disable", ctrl.disable2FAHandler);
+router.post("/2fa/backup-codes/regenerate", ctrl.regenerateBackupCodesHandler);
+
+// ===== 2FA signin (public - buoc 2 sau khi password hop le) =====
+router.post("/2fa/verify", authLimiter, ctrl.signInWith2FA);
+
 export default router;

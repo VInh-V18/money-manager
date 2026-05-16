@@ -43,7 +43,7 @@ const PERIOD_LABELS: Record<BudgetPeriod, string> = {
   weekly: "Hàng tuần",
   monthly: "Hàng tháng",
   yearly: "Hàng năm",
-  custom: "Tuỳ chỉnh",
+  custom: "Tùy chỉnh",
 };
 
 export default function BudgetPage() {
@@ -425,7 +425,7 @@ export default function BudgetPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -435,7 +435,7 @@ export default function BudgetPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá ngân sách?"
+        title="Xóa ngân sách?"
         description={`Bạn có chắc muốn xoá "${deleting?.name}"?`}
         loading={delLoading}
         onConfirm={handleDelete}

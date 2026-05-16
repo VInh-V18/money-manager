@@ -51,13 +51,13 @@ export const rangeReport = asyncHandler(async (req, res) => {
 
 export const dailyStats = asyncHandler(async (req, res) => {
   const { from, to } = resolveRange(req);
-  const items = await getDailyStats(req.user.id, from, to);
+  const items = await getDailyStats(req.user.id, from, to, req.query);
   return ok(res, { items, range: { from, to } });
 });
 
 export const weeklyStats = asyncHandler(async (req, res) => {
   const { from, to } = resolveRange(req);
-  const items = await getWeeklyStats(req.user.id, from, to);
+  const items = await getWeeklyStats(req.user.id, from, to, req.query);
   return ok(res, { items, range: { from, to } });
 });
 

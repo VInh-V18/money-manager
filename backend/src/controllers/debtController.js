@@ -6,10 +6,32 @@ import { Debt, sequelize } from "../models/index.js";
 import { createTransactionWithBalance } from "../services/transactionService.js";
 import { formatDate, today } from "../utils/date.js";
 
-const enrichDebt = (d) => ({
-  ...d.toJSON(),
-  remaining: Number(d.amount) - Number(d.paidAmount),
-});
+/**
+ * Tinh lai don gian: I = P * r * t (r = %/nam, t = nam)
+ * Tinh lai kep: A = P * (1 + r)^t - P
+ */
+const calcInterest = (principal, ratePercent, interestType, borrowedDate) => {
+  if (!ratePercent || !interestType || interestType === "none") return 0;
+  const r = Number(ratePercent) / 100;
+  const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
+  const t = (Date.now() - new Date(borrowedDate).getTime()) / msPerYear;
+  if (t <= 0) return 0;
+  if (interestType === "simple") return Math.round(Number(principal) * r * t);
+  if (interestType === "compound") return Math.round(Number(principal) * (Math.pow(1 + r, t) - 1));
+  return 0;
+};
+
+const enrichDebt = (d) => {
+  const interest = calcInterest(d.amount, d.interestRate, d.interestType, d.borrowedDate);
+  const totalWithInterest = Number(d.amount) + interest;
+  return {
+    ...d.toJSON(),
+    remaining: Number(d.amount) - Number(d.paidAmount),
+    interest,
+    totalWithInterest,
+    remainingWithInterest: Math.max(0, totalWithInterest - Number(d.paidAmount)),
+  };
+};
 
 export const listDebts = asyncHandler(async (req, res) => {
   // tu cap nhat trang thai overdue truoc khi tra

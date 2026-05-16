@@ -190,7 +190,7 @@ export default function WalletPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá ví?"
+        title="Xóa ví?"
         description={`Bạn có chắc muốn xoá ví "${deleting?.name}"? Ví sẽ chỉ xoá được nếu chưa có giao dịch nào.`}
         loading={delLoading}
         onConfirm={handleDelete}

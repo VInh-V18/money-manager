@@ -13,7 +13,13 @@ import {
   sequelize,
 } from "../models/index.js";
 import { hashPassword, comparePassword } from "../utils/bcrypt.js";
-import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
+import {
+  signAccessToken,
+  signRefreshToken,
+  sign2FAChallengeToken,
+  verify2FAChallengeToken,
+} from "../utils/jwt.js";
+import { verify2FAToken, useBackupCode } from "./twoFactorService.js";
 import { sendOtpEmail } from "./mailService.js";
 import env from "../config/env.js";
 import {
@@ -54,7 +60,7 @@ const DEFAULT_EXPENSE_CATS = [
 ];
 
 const generateOtp = () =>
-  String(Math.floor(100000 + Math.random() * 900000));
+  String(crypto.randomInt(100000, 1000000)).padStart(6, "0");
 
 const generateResetToken = () =>
   crypto.randomBytes(32).toString("hex");
@@ -396,6 +402,51 @@ export const signInService = async ({ identifier, password, userAgent, ipAddress
     await user.update({ failedLoginCount: 0, lockedUntil: null });
   }
 
+  // Neu 2FA duoc bat, tra challenge token thay vi tao phien ngay
+  if (user.twoFactorEnabled) {
+    const twoFactorToken = sign2FAChallengeToken(user.id);
+    return { requires2FA: true, twoFactorToken };
+  }
+
+  const session = await issueSession(user, { userAgent, ipAddress });
+  await recordLoginHistory({
+    userId: user.id,
+    email: user.email,
+    status: "SUCCESS",
+    userAgent,
+    ipAddress,
+  });
+  return session;
+};
+
+/**
+ * Buoc 2 dang nhap khi 2FA duoc bat
+ * token: ma TOTP 6 chu so, hoac backup code
+ * twoFactorToken: challenge JWT tu buoc 1
+ */
+export const signInWith2FAService = async ({
+  twoFactorToken,
+  token,
+  useBackup = false,
+  userAgent,
+  ipAddress,
+}) => {
+  let payload;
+  try {
+    payload = verify2FAChallengeToken(twoFactorToken);
+  } catch {
+    throw unauthorizedError("2FA challenge token khong hop le hoac da het han");
+  }
+
+  const userId = payload.id;
+
+  if (useBackup) {
+    await useBackupCode(userId, token);
+  } else {
+    await verify2FAToken(userId, token);
+  }
+
+  const user = await User.findByPk(userId);
   const session = await issueSession(user, { userAgent, ipAddress });
   await recordLoginHistory({
     userId: user.id,

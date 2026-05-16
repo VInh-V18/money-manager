@@ -26,4 +26,9 @@ router.get("/monthly-analysis", aiLimiter, ctrl.monthlyAnalysis);
 router.get("/savings", aiLimiter, ctrl.savings);
 router.get("/report", aiLimiter, ctrl.report);
 
+// ===== Chat Sessions =====
+router.get("/sessions", ctrl.listSessions);
+router.get("/sessions/:id", ctrl.getSession);
+router.delete("/sessions/:id", ctrl.deleteSession);
+
 export default router;

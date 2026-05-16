@@ -18,6 +18,9 @@ api.interceptors.request.use((config) => {
 
 type RetryConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
+// Shared promise so concurrent 401 responses share a single refresh call
+let refreshPromise: Promise<string> | null = null;
+
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
@@ -38,12 +41,23 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retried) {
       originalRequest._retried = true;
-      try {
-        const res = await api.post("/auth/refresh");
-        const newToken = res.data?.data?.accessToken;
-        if (!newToken) throw new Error("No access token in refresh response");
 
-        useAuthStore.getState().setAccessToken(newToken);
+      if (!refreshPromise) {
+        refreshPromise = api
+          .post("/auth/refresh")
+          .then((res) => {
+            const newToken = res.data?.data?.accessToken;
+            if (!newToken) throw new Error("No access token in refresh response");
+            useAuthStore.getState().setAccessToken(newToken);
+            return newToken as string;
+          })
+          .finally(() => {
+            refreshPromise = null;
+          });
+      }
+
+      try {
+        const newToken = await refreshPromise;
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }

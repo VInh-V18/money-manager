@@ -172,7 +172,7 @@ export function WalletFormDialog({ open, onClose, wallet, onSaved }: Props) {
 
           <div className="space-y-2">
             <Label>Ghi chú</Label>
-            <Textarea {...register("note")} placeholder="Tuỳ chọn" rows={2} />
+            <Textarea {...register("note")} placeholder="Tùy chọn" rows={2} />
           </div>
 
           <div className="space-y-2">
@@ -194,7 +194,7 @@ export function WalletFormDialog({ open, onClose, wallet, onSaved }: Props) {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Huỷ</Button>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
             <Button type="submit" loading={isSubmitting}>
               {isEdit ? "Cập nhật" : "Tạo ví"}
             </Button>

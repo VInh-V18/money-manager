@@ -254,7 +254,7 @@ export default function TransactionPage() {
           <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
             {selectedIds.size > 0 && (
               <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)} className="flex-1 sm:flex-none">
-                <Trash2 className="size-4" /> Xoá đã chọn ({selectedIds.size})
+                <Trash2 className="size-4" /> Xóa đã chọn ({selectedIds.size})
               </Button>
             )}
             <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="flex-1 sm:flex-none">
@@ -419,16 +419,16 @@ export default function TransactionPage() {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tat ca</SelectItem>
-                    <SelectItem value="yes">Co hoa don</SelectItem>
-                    <SelectItem value="no">Khong hoa don</SelectItem>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="yes">Có hóa đơn</SelectItem>
+                    <SelectItem value="no">Không có hóa đơn</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex items-end">
                 <Button variant="outline" onClick={clearFilters} className="w-full">
-                  <X className="size-4" /> Xoá bộ lọc
+                  <X className="size-4" /> Xóa bộ lọc
                 </Button>
               </div>
             </div>
@@ -491,7 +491,7 @@ export default function TransactionPage() {
           </label>
           {selectedIds.size > 0 && (
             <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)} className="w-full sm:w-auto">
-              <Trash2 className="size-4" /> Xoá {selectedIds.size} giao dịch
+              <Trash2 className="size-4" /> Xóa {selectedIds.size} giao dịch
             </Button>
           )}
         </div>
@@ -642,7 +642,7 @@ export default function TransactionPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá giao dịch?"
+        title="Xóa giao dịch?"
         description="Số dư của ví sẽ được điều chỉnh tương ứng."
         loading={delLoading}
         onConfirm={handleDelete}
@@ -651,7 +651,7 @@ export default function TransactionPage() {
       <ConfirmDialog
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}
-        title={`Xoá ${selectedIds.size} giao dịch?`}
+        title={`Xóa ${selectedIds.size} giao dịch?`}
         description="Số dư của các ví liên quan sẽ được hoàn tác theo từng giao dịch đã chọn."
         loading={bulkDeleteLoading}
         onConfirm={handleBulkDelete}

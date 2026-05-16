@@ -22,6 +22,11 @@ export default (sequelize) => {
 
       borrowedDate: { type: DataTypes.DATEONLY, allowNull: false },
       dueDate: { type: DataTypes.DATEONLY, allowNull: true },
+      interestRate: { type: DataTypes.DECIMAL(5, 2), allowNull: true, defaultValue: 0 },
+      interestType: {
+        type: DataTypes.ENUM("none", "simple", "compound"),
+        defaultValue: "none",
+      },
 
       status: {
         type: DataTypes.ENUM("active", "paid", "overdue"),

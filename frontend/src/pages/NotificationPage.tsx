@@ -87,7 +87,7 @@ export default function NotificationPage() {
               <Check className="size-4" /> Đọc tất cả
             </Button>
             <Button size="sm" variant="outline" onClick={removeAllRead}>
-              <Trash2 className="size-4" /> Xoá đã đọc
+              <Trash2 className="size-4" /> Xóa đã đọc
             </Button>
           </div>
         }
@@ -135,7 +135,7 @@ export default function NotificationPage() {
                           variant="ghost"
                           onClick={() => remove(n.id)}
                           className="text-destructive"
-                          title="Xoá"
+                          title="Xóa"
                         >
                           <Trash2 className="size-4" />
                         </Button>

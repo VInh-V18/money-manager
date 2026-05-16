@@ -18,11 +18,18 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
-import { aiService, type AiChatHistoryItem, type AiMode } from "@/services/aiService";
+import { aiService, type AiMode } from "@/services/aiService";
 
-interface ChatMessage extends AiChatHistoryItem {
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
   mode?: AiMode;
 }
+
+const MAX_MESSAGES = 60;
+
+const trimMessages = (msgs: ChatMessage[]): ChatMessage[] =>
+  msgs.length > MAX_MESSAGES ? [WELCOME_MESSAGE, ...msgs.slice(-(MAX_MESSAGES - 1))] : msgs;
 
 const WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
@@ -119,18 +126,13 @@ function AnswerText({ text }: { text: string }) {
   );
 }
 
-const buildHistory = (messages: ChatMessage[]): AiChatHistoryItem[] =>
-  messages
-    .filter((message) => message.content !== WELCOME_MESSAGE.content)
-    .slice(-8)
-    .map(({ role, content }) => ({ role, content }));
-
 export function FloatingAiChatbot() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<AiMode>("advisor");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [sessionId, setSessionId] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const activeAction = useMemo(
@@ -147,7 +149,6 @@ export function FloatingAiChatbot() {
     const clean = message.trim();
     if (!clean || loading) return;
 
-    const history = buildHistory(messages);
     setOpen(true);
     setInput("");
     setMode(selectedMode);
@@ -190,11 +191,11 @@ export function FloatingAiChatbot() {
         return;
       }
 
-      const data = await aiService.chat(clean, selectedMode, history);
-      setMessages((items) => [
-        ...items,
-        { role: "assistant", content: data.answer, mode: selectedMode },
-      ]);
+      const data = await aiService.chat(clean, selectedMode, sessionId);
+      setSessionId(data.sessionId);
+      setMessages((items) =>
+        trimMessages([...items, { role: "assistant", content: data.answer, mode: selectedMode }])
+      );
     } catch (err) {
       toast.error(getErrorMessage(err, "AI chưa phản hồi được"));
       setMessages((items) => [
@@ -225,7 +226,8 @@ export function FloatingAiChatbot() {
             ? await aiService.savings()
             : action.id === "advisor"
               ? await aiService.report()
-              : await aiService.chat(action.prompt, action.id, buildHistory(messages));
+              : await aiService.chat(action.prompt, action.id, sessionId);
+      if ("sessionId" in data && data.sessionId) setSessionId(data.sessionId);
       setMessages((items) => [
         ...items,
         { role: "assistant", content: data.answer, mode: action.id },
@@ -241,6 +243,7 @@ export function FloatingAiChatbot() {
     setMessages([WELCOME_MESSAGE]);
     setMode("advisor");
     setInput("");
+    setSessionId(null);
   };
 
   return (

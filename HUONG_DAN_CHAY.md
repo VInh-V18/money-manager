@@ -1,29 +1,64 @@
+
 # Hướng Dẫn Chạy Money Manager
 
-## 1. Chuẩn bị
+## Cách 1 — Docker (khuyến nghị)
 
-- Cài Node.js 20+
-- Cài MySQL/MariaDB hoặc XAMPP
-- Tạo database `money_manager` với collation `utf8mb4_unicode_ci`
+### Yêu cầu
+- Docker Desktop đang chạy
+
+### Các bước
+
+```bash
+# 1. Sao chép file cấu hình
+copy .env.example .env
+copy backend\.env.docker.example backend\.env.docker
+
+# 2. Điền giá trị thực vào backend\.env.docker
+#    (JWT secrets, email, Gemini API key, OAuth credentials)
+
+# 3. Build và khởi động
+docker compose up -d --build
+
+# 4. Kiểm tra
+curl http://localhost/api/health
+```
+
+Ứng dụng chạy tại:
+- Frontend: `http://localhost`
+- Adminer (quản lý DB): `http://localhost:8080`
+
+Để xem log backend:
+```bash
+docker compose logs -f backend
+```
+
+---
+
+## Cách 2 — Chạy thủ công (dev)
+
+### Yêu cầu
+- Node.js 20+
+- MySQL/MariaDB hoặc XAMPP
+
+### Tạo database
 
 ```sql
 CREATE DATABASE money_manager CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-## 2. Chạy backend
+### Chạy backend
 
 ```bash
 cd backend
 npm install
 copy .env.example .env
+# Điền DB, JWT, email, Gemini vào .env
 npm run dev
 ```
 
-Mở `backend/.env` và cấu hình database, JWT secret, SMTP.
+Backend chạy tại `http://localhost:5001`.
 
-Backend mặc định chạy tại `http://localhost:5001`.
-
-## 3. Chạy frontend
+### Chạy frontend
 
 ```bash
 cd frontend
@@ -32,34 +67,39 @@ copy .env.example .env
 npm run dev
 ```
 
-Frontend mặc định chạy tại `http://localhost:5173`.
+Frontend chạy tại `http://localhost:5173`.
 
-## 4. Cấu hình gửi OTP qua email
+---
 
-Trong `backend/.env`, điền:
+## Cấu hình email (gửi OTP)
+
+Dùng Gmail App Password (không phải mật khẩu đăng nhập):
 
 ```env
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USER=your_email@gmail.com
-MAIL_PASS=your_app_password
+MAIL_PASS=your_gmail_app_password
 MAIL_FROM_NAME=Money Manager
 ```
 
-Với Gmail, `MAIL_PASS` là App Password, không phải mật khẩu đăng nhập Gmail.
+Hướng dẫn tạo App Password: https://myaccount.google.com/apppasswords
 
-## 5. Cấu hình Gemini AI
+---
 
-Tạo API key Gemini trong Google AI Studio, sau đó thêm vào `backend/.env`:
+## Cấu hình Gemini AI
+
+Tạo API key tại https://aistudio.google.com, sau đó thêm vào `.env` (hoặc `backend/.env.docker`):
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
+GEMINI_FALLBACK_MODELS=gemini-2.5-flash-lite,gemini-2.0-flash
 ```
 
-Sau khi đổi `.env`, restart backend.
+---
 
-## 6. Seed dữ liệu demo
+## Seed dữ liệu demo
 
 ```bash
 cd backend
@@ -68,7 +108,7 @@ npm run seed
 
 Tài khoản demo mặc định:
 
-```text
-Email: demo@money.local
+```
+Email:    demo@money.local
 Password: Demo@1234
 ```

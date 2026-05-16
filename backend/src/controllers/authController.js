@@ -3,6 +3,7 @@ import { ok, created } from "../utils/response.js";
 import {
   signUpService,
   signInService,
+  signInWith2FAService,
   getOAuthStartUrl,
   signInWithOAuthService,
   signOutService,
@@ -18,6 +19,12 @@ import {
   listLoginHistoryService,
   listActivityLogsService,
 } from "../services/authService.js";
+import {
+  generate2FASecret,
+  enable2FA,
+  disable2FA,
+  regenerateBackupCodes,
+} from "../services/twoFactorService.js";
 import env from "../config/env.js";
 
 const COOKIE_OPTS = {
@@ -214,4 +221,46 @@ export const loginHistory = asyncHandler(async (req, res) => {
 export const activityLogs = asyncHandler(async (req, res) => {
   const data = await listActivityLogsService(req.user.id, req.query);
   return ok(res, data);
+});
+
+// ===== 2FA (Two-Factor Authentication) =====
+
+export const setup2FA = asyncHandler(async (req, res) => {
+  const data = await generate2FASecret(req.user.id);
+  return ok(res, data, "Quet QR code bang Google Authenticator roi xac nhan bang /2fa/enable");
+});
+
+export const enable2FAHandler = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  const data = await enable2FA(req.user.id, token);
+  return ok(
+    res,
+    data,
+    "Bat 2FA thanh cong. Hay luu backup codes de phong truong hop mat dien thoai"
+  );
+});
+
+export const disable2FAHandler = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  const data = await disable2FA(req.user.id, password);
+  return ok(res, data, "Da tat 2FA");
+});
+
+export const regenerateBackupCodesHandler = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  const data = await regenerateBackupCodes(req.user.id, password);
+  return ok(res, data, "Tao lai backup codes thanh cong. Backup codes cu da bi huy");
+});
+
+export const signInWith2FA = asyncHandler(async (req, res) => {
+  const { twoFactorToken, token, useBackup } = req.body;
+  const { user, accessToken, refreshToken } = await signInWith2FAService({
+    twoFactorToken,
+    token,
+    useBackup: Boolean(useBackup),
+    userAgent: req.headers["user-agent"],
+    ipAddress: req.ip,
+  });
+  res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
+  return ok(res, { user, accessToken }, "Dang nhap 2FA thanh cong");
 });

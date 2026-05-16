@@ -337,6 +337,19 @@ export interface NotificationPreference {
 }
 
 // ===== Report =====
+export interface FinancialHealth {
+  score: number;
+  level: "good" | "fair" | "watch" | "risk";
+  totalBalance: number;
+  savingRate: number;
+  exceededBudgets: number;
+  warningBudgets: number;
+  overdueDebts: number;
+  lowWallets: number;
+  negativeWallets: number;
+  suggestions: string[];
+}
+
 export interface OverviewData {
   totalBalance: number;
   todayIncome: number;
@@ -347,6 +360,7 @@ export interface OverviewData {
   savingRate: number;
   daysLeftInMonth: number;
   suggestedDailySpend: number;
+  financialHealth: FinancialHealth;
   recentTransactions: Transaction[];
 }
 

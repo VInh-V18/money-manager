@@ -12,13 +12,18 @@ export default (sequelize) => {
           "cash",
           "bank",
           "ewallet",
+          "credit",
           "saving",
           "investment",
+          "debt",
           "other"
         ),
         defaultValue: "cash",
         allowNull: false,
       },
+      creditLimit: { type: DataTypes.DECIMAL(18, 2), allowNull: true, defaultValue: null },
+      statementDay: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
+      paymentDueDay: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
       // so du hien tai (cap nhat real-time khi co giao dich)
       balance: {
         type: DataTypes.DECIMAL(18, 2),

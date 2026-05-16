@@ -7,18 +7,24 @@ const asDailyStats = (value: unknown): DailyStat[] =>
 const asWeeklyStats = (value: unknown): WeeklyStat[] =>
   Array.isArray(value) ? (value as WeeklyStat[]) : [];
 
+export type ReportFilters = {
+  type?: "income" | "expense";
+  walletId?: number;
+  categoryId?: number;
+};
+
 export const reportService = {
   overview: () =>
     api.get("/reports/overview").then((r) => r.data.data as OverviewData),
 
-  range: (fromDate?: string, toDate?: string) =>
+  range: (fromDate?: string, toDate?: string, filters: ReportFilters = {}) =>
     api
-      .get("/reports/range", { params: { fromDate, toDate } })
+      .get("/reports/range", { params: { fromDate, toDate, ...filters } })
       .then((r) => r.data.data as RangeReport),
 
-  dailyStats: (fromDate: string, toDate: string) =>
+  dailyStats: (fromDate: string, toDate: string, filters: ReportFilters = {}) =>
     api
-      .get("/reports/daily-stats", { params: { fromDate, toDate } })
+      .get("/reports/daily-stats", { params: { fromDate, toDate, ...filters } })
       .then((r) => {
         const data = r.data?.data;
         return {
@@ -27,9 +33,9 @@ export const reportService = {
         };
       }),
 
-  weeklyStats: (fromDate: string, toDate: string) =>
+  weeklyStats: (fromDate: string, toDate: string, filters: ReportFilters = {}) =>
     api
-      .get("/reports/weekly-stats", { params: { fromDate, toDate } })
+      .get("/reports/weekly-stats", { params: { fromDate, toDate, ...filters } })
       .then((r) => {
         const data = r.data?.data;
         return {

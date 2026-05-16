@@ -165,7 +165,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
   const classifyCategory = async () => {
     const text = (description || "").trim();
     if (!text) {
-      toast.error("Nhap mo ta truoc khi dung AI phan loai");
+      toast.error("Nhập mô tả trước khi dùng AI phân loại");
       return;
     }
     setClassifying(true);
@@ -174,12 +174,12 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       setValue("type", result.type, { shouldDirty: true });
       if (result.category?.id) {
         setValue("categoryId", result.category.id, { shouldDirty: true });
-        toast.success(`AI chon danh muc: ${result.category.name}`);
+        toast.success(`AI chọn danh mục: ${result.category.name}`);
       } else {
-        toast.info(result.reason || "AI chua tim thay danh muc phu hop");
+        toast.info(result.reason || "AI chưa tìm thấy danh mục phù hợp");
       }
     } catch (err) {
-      toast.error(getErrorMessage(err, "AI chua phan loai duoc"));
+      toast.error(getErrorMessage(err, "AI chưa phân loại được"));
     } finally {
       setClassifying(false);
     }
@@ -269,7 +269,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
               <div className="flex items-center justify-between gap-2">
                 <Label>Danh mục</Label>
                 <Button type="button" variant="ghost" size="sm" onClick={classifyCategory} loading={classifying}>
-                  AI phan loai
+                  AI phân loại
                 </Button>
               </div>
               <Controller
@@ -310,7 +310,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
 
           <div className="space-y-2">
             <Label>Ghi chú</Label>
-            <Textarea {...register("note")} rows={2} placeholder="Tuỳ chọn" />
+            <Textarea {...register("note")} rows={2} placeholder="Tùy chọn" />
           </div>
 
           <div className="space-y-2">
@@ -332,7 +332,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Huỷ</Button>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
             <Button type="submit" loading={isSubmitting}>
               {isEdit ? "Cập nhật" : "Lưu"}
             </Button>

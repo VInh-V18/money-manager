@@ -2,9 +2,12 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import morgan from "morgan";
 import path from "path";
+import fs from "fs";
 
 import env from "./config/env.js";
+import { logger, morganStream } from "./utils/logger.js";
 import { connectDB } from "./config/database.js";
 import { syncModels } from "./models/index.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware.js";
@@ -31,6 +34,10 @@ import {
 // cron
 import { initCronJobs } from "./jobs/cronJobs.js";
 
+// Dam bao thu muc logs ton tai
+const logsDir = path.resolve("logs");
+if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+
 const app = express();
 app.set("trust proxy", 1);
 
@@ -56,6 +63,7 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev", { stream: morganStream }));
 
 app.use("/uploads", express.static(path.resolve(env.UPLOAD_DIR)));
 
@@ -121,14 +129,13 @@ const start = async () => {
   });
   initCronJobs();
   app.listen(env.PORT, () => {
-    console.log(`\n✓ Server chay tai http://localhost:${env.PORT}`);
-    console.log(`  Health check: http://localhost:${env.PORT}/api/health`);
-    console.log(`  API root: http://localhost:${env.PORT}/api\n`);
+    logger.info(`Server chay tai http://localhost:${env.PORT}`);
+    logger.info(`Health check: http://localhost:${env.PORT}/api/health`);
   });
 };
 
 start().catch((err) => {
-  console.error("✗ Khoi dong server that bai:", err);
+  logger.error("Khoi dong server that bai:", err);
   process.exit(1);
 });
 

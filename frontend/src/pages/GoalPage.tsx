@@ -366,7 +366,7 @@ export default function GoalPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -384,7 +384,7 @@ export default function GoalPage() {
             <CurrencyInput value={addAmount} onChange={setAddAmount} className="text-xl h-12" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddingTo(null)}>Huỷ</Button>
+            <Button variant="outline" onClick={() => setAddingTo(null)}>Hủy</Button>
             <Button onClick={handleAddToGoal} loading={adding} disabled={addAmount <= 0}>
               Xác nhận
             </Button>
@@ -420,7 +420,7 @@ export default function GoalPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá mục tiêu?"
+        title="Xóa mục tiêu?"
         description={`Bạn có chắc muốn xoá "${deleting?.name}"?`}
         loading={delLoading}
         onConfirm={handleDelete}

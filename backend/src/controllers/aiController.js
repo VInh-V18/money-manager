@@ -9,11 +9,31 @@ import {
   getFinancialContext,
   getSpendingTotal,
   suggestSavings,
+  listChatSessions,
+  getChatSession,
+  deleteChatSession,
 } from "../services/aiService.js";
 
 export const chat = asyncHandler(async (req, res) => {
-  const data = await askFinancialAssistant(req.user.id, req.body);
+  const { message, mode, sessionId } = req.body;
+  const data = await askFinancialAssistant(req.user.id, { message, mode, sessionId });
   return ok(res, data);
+});
+
+// ===== Chat Sessions =====
+export const listSessions = asyncHandler(async (req, res) => {
+  const data = await listChatSessions(req.user.id, req.query);
+  return ok(res, data);
+});
+
+export const getSession = asyncHandler(async (req, res) => {
+  const data = await getChatSession(req.user.id, Number(req.params.id));
+  return ok(res, data);
+});
+
+export const deleteSession = asyncHandler(async (req, res) => {
+  const data = await deleteChatSession(req.user.id, Number(req.params.id));
+  return ok(res, data, "Da xoa phien chat");
 });
 
 export const context = asyncHandler(async (req, res) => {

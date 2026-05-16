@@ -73,7 +73,7 @@ export default function AdminPage() {
     try {
       const updated = await adminService.updateFeedbackStatus(id, status);
       setFeedback((items) => items.map((item) => (item.id === id ? { ...item, ...updated } : item)));
-      toast.success("Da cap nhat feedback");
+      toast.success("Đã cập nhật phản hồi");
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -83,7 +83,7 @@ export default function AdminPage() {
     try {
       const updated = await adminService.updateUserRole(id, role);
       setUsers((items) => items.map((item) => (item.id === id ? { ...item, ...updated } : item)));
-      toast.success("Da cap nhat role");
+      toast.success("Đã cập nhật vai trò");
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -95,20 +95,20 @@ export default function AdminPage() {
 
   return (
     <div>
-      <PageHeader title="Admin" description="Theo doi he thong, nguoi dung va phan hoi" />
+      <PageHeader title="Admin" description="Theo dõi hệ thống, người dùng và phản hồi" />
 
       {loading || !dashboard ? (
-        <Card><CardContent className="p-8">Dang tai admin dashboard...</CardContent></Card>
+        <Card><CardContent className="p-8">Đang tải bảng điều khiển...</CardContent></Card>
       ) : (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              ["Tong user", dashboard.totalUsers],
-              ["User moi hom nay", dashboard.newUsersToday],
-              ["Tong giao dich", dashboard.totalTransactions],
-              ["Tong vi", dashboard.totalWallets],
-              ["Feedback mo", dashboard.openFeedback],
-              ["Login loi hom nay", dashboard.failedLoginsToday],
+              ["Tổng người dùng", dashboard.totalUsers],
+              ["Người dùng mới hôm nay", dashboard.newUsersToday],
+              ["Tổng giao dịch", dashboard.totalTransactions],
+              ["Tổng ví", dashboard.totalWallets],
+              ["Phản hồi đang mở", dashboard.openFeedback],
+              ["Đăng nhập lỗi hôm nay", dashboard.failedLoginsToday],
             ].map(([label, value]) => (
               <Card key={label}>
                 <CardContent className="p-5">
@@ -121,11 +121,11 @@ export default function AdminPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Tang truong user 30 ngay</CardTitle>
+              <CardTitle>Tăng trưởng người dùng 30 ngày</CardTitle>
             </CardHeader>
             <CardContent>
               {userGrowth.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Chua co du lieu tang truong.</p>
+                <p className="text-sm text-muted-foreground">Chưa có dữ liệu tăng trưởng.</p>
               ) : (
                 <div className="space-y-2">
                   {userGrowth.map((item) => {
@@ -152,7 +152,7 @@ export default function AdminPage() {
                 <div className="space-y-3">
                   <CardTitle className="flex items-center gap-2">
                     <Shield className="size-5" />
-                    User gan day
+                    Người dùng gần đây
                   </CardTitle>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
@@ -161,7 +161,7 @@ export default function AdminPage() {
                       onKeyDown={(event) => {
                         if (event.key === "Enter") void loadUsers();
                       }}
-                      placeholder="Tim email, username, ten"
+                      placeholder="Tìm email, username, tên"
                     />
                     <Select
                       value={userRoleFilter}
@@ -175,21 +175,21 @@ export default function AdminPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Tat ca role</SelectItem>
+                        <SelectItem value="all">Tất cả vai trò</SelectItem>
                         {USER_ROLES.map((role) => (
                           <SelectItem key={role} value={role}>{role}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <Button type="button" variant="outline" onClick={() => loadUsers()} className="shrink-0">
-                      Tim
+                      Tìm
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
                 {users.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Khong tim thay user.</p>
+                  <p className="text-sm text-muted-foreground">Không tìm thấy người dùng.</p>
                 ) : users.map((item) => (
                   <div key={item.id} className="rounded-lg border p-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -220,7 +220,7 @@ export default function AdminPage() {
             <Card>
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle>Feedback gan day</CardTitle>
+                  <CardTitle>Phản hồi gần đây</CardTitle>
                   <Select
                     value={feedbackStatus}
                     onValueChange={(value) => {
@@ -233,18 +233,18 @@ export default function AdminPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tat ca</SelectItem>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="reviewing">Reviewing</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="open">Đang mở</SelectItem>
+                      <SelectItem value="reviewing">Đang xem xét</SelectItem>
+                      <SelectItem value="resolved">Đã giải quyết</SelectItem>
+                      <SelectItem value="closed">Đã đóng</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
                 {feedback.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Chua co feedback.</p>
+                  <p className="text-sm text-muted-foreground">Chưa có phản hồi.</p>
                 ) : feedback.map((item) => (
                   <div key={item.id} className="rounded-lg border p-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -278,12 +278,12 @@ export default function AdminPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="size-5" />
-                System logs gan day
+                Nhật ký hệ thống gần đây
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {logs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Chua co log he thong.</p>
+                <p className="text-sm text-muted-foreground">Chưa có nhật ký hệ thống.</p>
               ) : logs.map((item) => {
                 const payload = formatPayload(item.payload);
                 return (

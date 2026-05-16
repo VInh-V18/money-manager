@@ -70,4 +70,22 @@ export const authService = {
     api
       .get("/auth/activity-logs", { params: { page, limit } })
       .then((r) => r.data.data as PaginatedResult<ActivityLog>),
+
+  // ===== 2FA =====
+  setup2FA: () =>
+    api.get("/auth/2fa/setup").then((r) => r.data.data as { secret: string; qrCodeDataUrl: string; otpAuthUrl: string }),
+
+  enable2FA: (token: string) =>
+    api.post("/auth/2fa/enable", { token }).then((r) => r.data.data as { backupCodes: string[] }),
+
+  disable2FA: (password: string) =>
+    api.post("/auth/2fa/disable", { password }).then((r) => r.data.data as { message: string }),
+
+  regenerateBackupCodes: (password: string) =>
+    api.post("/auth/2fa/backup-codes/regenerate", { password }).then((r) => r.data.data as { backupCodes: string[] }),
+
+  verify2FA: (twoFactorToken: string, token: string, useBackup = false) =>
+    api
+      .post("/auth/2fa/verify", { twoFactorToken, token, useBackup })
+      .then((r) => r.data.data as { user: User; accessToken: string }),
 };

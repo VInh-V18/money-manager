@@ -5,16 +5,7 @@ export const aiChatSchema = z.object({
   mode: z
     .enum(["advisor", "forecast", "risk", "budget", "transaction_parser"])
     .default("advisor"),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string().trim().min(1).max(1500),
-      })
-    )
-    .max(8)
-    .optional()
-    .default([]),
+  sessionId: z.number().int().positive().optional().nullable(),
 });
 
 export const aiTextSchema = z.object({

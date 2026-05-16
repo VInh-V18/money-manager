@@ -252,7 +252,7 @@ export default function CategoryPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -262,7 +262,7 @@ export default function CategoryPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá danh mục?"
+        title="Xóa danh mục?"
         description={`Bạn có chắc muốn xoá "${deleting?.name}"? Không thể xoá nếu đã có giao dịch hoặc danh mục con.`}
         loading={delLoading}
         onConfirm={handleDelete}

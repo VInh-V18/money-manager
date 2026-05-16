@@ -7,6 +7,8 @@ import {
   FinancialGoal,
   Debt,
   FixedExpense,
+  AiChatSession,
+  AiChatMessage,
   sequelize,
 } from "../models/index.js";
 import { AppError } from "../utils/errors.js";
@@ -247,39 +249,6 @@ export const getFinancialContext = async (userId) => {
   };
 };
 
-const modePrompts = {
-  advisor: "Tư vấn tổng thể: phân tích sức khỏe tài chính, hành vi chi tiêu, ưu tiên hành động.",
-  forecast: "Dự báo: ước lượng cuối tháng/quý dựa trên dòng tiền hiện có và nêu giả định.",
-  risk: "Kiểm tra rủi ro: tìm khoản bất thường, ngân sách vượt mức, nợ đến hạn, ví âm hoặc dòng tiền xấu.",
-  budget: "Lập kế hoạch: đề xuất ngân sách, mục tiêu tiết kiệm và hành động theo tuần.",
-  transaction_parser:
-    "Nếu người dùng mô tả giao dịch bằng ngôn ngữ tự nhiên, hãy trích xuất type, amount, category, wallet, date, description và nêu chỗ còn thiếu.",
-};
-
-const buildPrompt = ({ context, message, mode }) => `
-Bạn là AI tài chính cá nhân trong ứng dụng Money Manager.
-
-Quy tắc:
-- Chỉ dùng dữ liệu JSON được cung cấp, không bịa số liệu.
-- Trả lời bằng tiếng Việt, rõ ràng, thực dụng.
-- Không đưa lời khuyên đầu tư rủi ro cao. Nếu nói về đầu tư, chỉ nói ở mức nguyên tắc quản lý tiền.
-- Nếu thiếu dữ liệu, nói rõ cần thêm dữ liệu nào.
-- Ưu tiên con số cụ thể, mốc thời gian cụ thể và hành động cụ thể.
-
-Chế độ: ${modePrompts[mode] || modePrompts.advisor}
-
-Định dạng trả lời:
-1. Tóm tắt 3-5 gạch đầu dòng.
-2. Phân tích chi tiết theo dữ liệu.
-3. Cảnh báo/rủi ro nếu có.
-4. Kế hoạch hành động 7 ngày tới.
-
-Dữ liệu tài chính của user:
-${JSON.stringify(context)}
-
-Câu hỏi của user:
-${message}
-`;
 
 const extractGeminiText = (payload) => {
   const parts = payload?.candidates?.[0]?.content?.parts || [];
@@ -535,13 +504,71 @@ Câu hỏi hiện tại:
 ${message}
 `;
 
-export const askFinancialAssistant = async (userId, { message, mode = "advisor", history = [] }) => {
+// ---- AI chat session helpers ----
+export const listChatSessions = async (userId, { page = 1, limit = 20 } = {}) => {
+  const offset = (page - 1) * limit;
+  const { count, rows } = await AiChatSession.findAndCountAll({
+    where: { userId },
+    order: [["updatedAt", "DESC"]],
+    limit: Number(limit),
+    offset,
+  });
+  return { total: count, page: Number(page), items: rows };
+};
+
+export const getChatSession = async (userId, sessionId) => {
+  const session = await AiChatSession.findOne({ where: { id: sessionId, userId } });
+  if (!session) throw new AppError("Phien chat khong ton tai", 404);
+  const messages = await AiChatMessage.findAll({
+    where: { sessionId },
+    order: [["createdAt", "ASC"]],
+  });
+  return { session, messages };
+};
+
+export const deleteChatSession = async (userId, sessionId) => {
+  const session = await AiChatSession.findOne({ where: { id: sessionId, userId } });
+  if (!session) throw new AppError("Phien chat khong ton tai", 404);
+  await AiChatMessage.destroy({ where: { sessionId } });
+  await session.destroy();
+  return { deleted: true };
+};
+
+const _autoTitle = (message) => {
+  const clean = String(message || "").trim().replace(/\s+/g, " ");
+  return clean.length <= 60 ? clean : clean.slice(0, 57) + "...";
+};
+
+export const askFinancialAssistant = async (userId, { message, mode = "advisor", history = [], sessionId = null }) => {
   if (!env.GEMINI_API_KEY) {
     throw new AppError("Chưa cấu hình GEMINI_API_KEY trong backend/.env", 500);
   }
 
+  // --- Load hoac tao session ---
+  let session = null;
+  let dbHistory = history;
+
+  if (sessionId) {
+    session = await AiChatSession.findOne({ where: { id: sessionId, userId } });
+  }
+  if (!session) {
+    session = await AiChatSession.create({
+      userId,
+      title: _autoTitle(message),
+    });
+  }
+
+  if (session) {
+    const prevMessages = await AiChatMessage.findAll({
+      where: { sessionId: session.id },
+      order: [["createdAt", "ASC"]],
+      limit: 16,
+    });
+    dbHistory = prevMessages.map((m) => ({ role: m.role, content: m.content }));
+  }
+
   const context = await getFinancialContext(userId);
-  const prompt = buildSmartPrompt({ context, message, mode, history });
+  const prompt = buildSmartPrompt({ context, message, mode, history: dbHistory });
 
   let smartPayload = null;
   let usedModel = env.GEMINI_MODEL;
@@ -593,53 +620,21 @@ export const askFinancialAssistant = async (userId, { message, mode = "advisor",
     throw new AppError("Gemini không trả về nội dung phân tích", 502);
   }
 
+  // --- Luu messages vao DB ---
+  if (session) {
+    await AiChatMessage.bulkCreate([
+      { sessionId: session.id, role: "user", content: message },
+      { sessionId: session.id, role: "assistant", content: smartAnswer },
+    ]);
+    await session.update({ updatedAt: new Date() });
+  }
+
   return {
     answer: smartAnswer,
     mode,
     model: usedModel,
+    sessionId: session?.id || null,
     usage: smartPayload.usageMetadata || null,
-    contextSnapshot: {
-      generatedAt: context.generatedAt,
-      totalBalance: context.totals.totalBalance,
-      last30Days: context.totals.cashflow30,
-    },
-  };
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": env.GEMINI_API_KEY,
-    },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: mode === "transaction_parser" ? 0.15 : 0.28,
-        topP: 0.85,
-        maxOutputTokens: 2200,
-      },
-    }),
-  });
-
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    const messageFromApi = payload?.error?.message || "Gemini API không phản hồi thành công";
-    throw new AppError(messageFromApi, response.status);
-  }
-
-  const answer = extractGeminiText(payload);
-  if (!answer) {
-    throw new AppError("Gemini không trả về nội dung phân tích", 502);
-  }
-
-  return {
-    answer,
-    mode,
-    model: env.GEMINI_MODEL,
-    usage: payload.usageMetadata || null,
     contextSnapshot: {
       generatedAt: context.generatedAt,
       totalBalance: context.totals.totalBalance,

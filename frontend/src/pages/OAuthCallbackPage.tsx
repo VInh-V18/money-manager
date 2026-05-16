@@ -14,7 +14,7 @@ export default function OAuthCallbackPage() {
     const error = searchParams.get("error");
 
     if (error || !accessToken) {
-      toast.error(error || "Dang nhap bang mang xa hoi khong thanh cong");
+      toast.error(error || "Đăng nhập bằng mạng xã hội không thành công");
       navigate("/signin", { replace: true });
       return;
     }
@@ -25,12 +25,12 @@ export default function OAuthCallbackPage() {
       await auth.fetchMe();
 
       if (!useAuthStore.getState().user) {
-        toast.error("Khong lay duoc thong tin tai khoan");
+        toast.error("Không lấy được thông tin tài khoản");
         navigate("/signin", { replace: true });
         return;
       }
 
-      toast.success("Dang nhap thanh cong");
+      toast.success("Đăng nhập thành công");
       navigate("/", { replace: true });
     };
 
@@ -41,7 +41,7 @@ export default function OAuthCallbackPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
         <Loader2 className="size-4 animate-spin" />
-        Dang hoan tat dang nhap...
+        Đang hoàn tất đăng nhập...
       </div>
     </div>
   );

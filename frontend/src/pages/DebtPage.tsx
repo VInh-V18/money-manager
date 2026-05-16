@@ -325,7 +325,7 @@ export default function DebtPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Huỷ</Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Hủy</Button>
               <Button type="submit" loading={isSubmitting}>{editing ? "Cập nhật" : "Tạo"}</Button>
             </DialogFooter>
           </form>
@@ -369,7 +369,7 @@ export default function DebtPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPayingDebt(null)}>Huỷ</Button>
+            <Button variant="outline" onClick={() => setPayingDebt(null)}>Hủy</Button>
             <Button onClick={handlePay} loading={paying} disabled={payAmount <= 0}>
               Xác nhận
             </Button>
@@ -380,7 +380,7 @@ export default function DebtPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Xoá khoản nợ?"
+        title="Xóa khoản nợ?"
         loading={delLoading}
         onConfirm={handleDelete}
       />

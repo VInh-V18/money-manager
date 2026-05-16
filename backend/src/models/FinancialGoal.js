@@ -23,8 +23,12 @@ export default (sequelize) => {
       note: { type: DataTypes.STRING(500), allowNull: true },
 
       status: {
-        type: DataTypes.ENUM("active", "completed", "cancelled"),
+        type: DataTypes.ENUM("active", "completed", "paused", "cancelled", "overdue"),
         defaultValue: "active",
+      },
+      priority: {
+        type: DataTypes.ENUM("low", "medium", "high"),
+        defaultValue: "medium",
       },
     },
     {

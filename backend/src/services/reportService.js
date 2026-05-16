@@ -31,6 +31,19 @@ const sumWhere = async (userId, type, fromDate, toDate) => {
   return Number(r?.total || 0);
 };
 
+const buildTransactionWhere = (userId, fromDate, toDate, opts = {}) => {
+  const where = {
+    userId,
+    transactionDate: { [Op.between]: [fromDate, toDate] },
+  };
+  const walletId = Number(opts.walletId);
+  const categoryId = Number(opts.categoryId);
+  if (Number.isInteger(walletId) && walletId > 0) where.walletId = walletId;
+  if (Number.isInteger(categoryId) && categoryId > 0) where.categoryId = categoryId;
+  if (["income", "expense"].includes(opts.type)) where.type = opts.type;
+  return where;
+};
+
 const getFinancialHealth = async (userId, summary) => {
   const [wallets, budgets, overdueDebts] = await Promise.all([
     Wallet.findAll({ where: { userId, isActive: true } }),
@@ -125,6 +138,15 @@ export const getOverview = async (userId) => {
     Math.ceil((endOfMonth() - new Date()) / (1000 * 60 * 60 * 24))
   );
 
+  const summary = {
+    income: monthIncome,
+    expense: monthExpense,
+    net: monthNet,
+    savingRate: Math.round(savingRate * 100) / 100,
+  };
+
+  const financialHealth = await getFinancialHealth(userId, summary);
+
   return {
     totalBalance,
     todayIncome,
@@ -132,10 +154,10 @@ export const getOverview = async (userId) => {
     monthIncome,
     monthExpense,
     monthNet,
-    savingRate: Math.round(savingRate * 100) / 100,
+    savingRate: summary.savingRate,
     daysLeftInMonth: daysLeft,
-    suggestedDailySpend:
-      monthNet > 0 ? Math.round(monthNet / daysLeft) : 0,
+    suggestedDailySpend: monthNet > 0 ? Math.round(monthNet / daysLeft) : 0,
+    financialHealth,
     recentTransactions: recentTx,
   };
 };
@@ -144,12 +166,7 @@ export const getOverview = async (userId) => {
  * Bao cao theo khoang thoi gian
  */
 export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
-  const where = {
-    userId,
-    transactionDate: { [Op.between]: [fromDate, toDate] },
-  };
-  if (opts.walletId) where.walletId = opts.walletId;
-  if (opts.categoryId) where.categoryId = opts.categoryId;
+  const where = buildTransactionWhere(userId, fromDate, toDate, opts);
 
   // tong thu chi
   const totals = await Transaction.findAll({
@@ -186,7 +203,7 @@ export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
       [fn("SUM", col("amount")), "total"],
       [fn("COUNT", col("Transaction.id")), "count"],
     ],
-    group: ["categoryId", "type", "Category.id"],
+    group: ["categoryId", "type", "Category.id", "Category.name", "Category.icon", "Category.color"],
     include: [
       {
         model: Category,
@@ -235,12 +252,9 @@ export const getReportByRange = async (userId, fromDate, toDate, opts = {}) => {
 /**
  * Thong ke theo ngay trong khoang (cho line/bar chart)
  */
-export const getDailyStats = async (userId, fromDate, toDate) => {
+export const getDailyStats = async (userId, fromDate, toDate, opts = {}) => {
   const rows = await Transaction.findAll({
-    where: {
-      userId,
-      transactionDate: { [Op.between]: [fromDate, toDate] },
-    },
+    where: buildTransactionWhere(userId, fromDate, toDate, opts),
     attributes: [
       "transactionDate",
       "type",
@@ -271,8 +285,8 @@ export const getDailyStats = async (userId, fromDate, toDate) => {
   return result;
 };
 
-export const getWeeklyStats = async (userId, fromDate, toDate) => {
-  const daily = await getDailyStats(userId, fromDate, toDate);
+export const getWeeklyStats = async (userId, fromDate, toDate, opts = {}) => {
+  const daily = await getDailyStats(userId, fromDate, toDate, opts);
   const weeks = new Map();
   for (const item of daily) {
     const date = new Date(item.date);
