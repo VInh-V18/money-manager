@@ -5,9 +5,8 @@ const sequelize = new Sequelize(env.DB_NAME, env.DB_USER, env.DB_PASSWORD, {
   host: env.DB_HOST,
   port: env.DB_PORT,
   dialect: "mysql",
-  logging: env.NODE_ENV === "development" ? false : false,
+  logging: false,
   define: {
-    // mac dinh: tat ca model dung snake_case khi sinh column trong CSDL
     underscored: false,
     timestamps: true,
     charset: "utf8mb4",
@@ -19,6 +18,9 @@ const sequelize = new Sequelize(env.DB_NAME, env.DB_USER, env.DB_PASSWORD, {
     acquire: 30000,
     idle: 10000,
   },
+  ...(env.DB_SSL === "true"
+    ? { dialectOptions: { ssl: { rejectUnauthorized: false } } }
+    : {}),
 });
 
 export const connectDB = async () => {

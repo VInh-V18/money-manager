@@ -20,6 +20,7 @@ const env = {
   DB_NAME: process.env.DB_NAME || "money_manager",
   DB_USER: process.env.DB_USER || "root",
   DB_PASSWORD: process.env.DB_PASSWORD || "",
+  DB_SSL: process.env.DB_SSL || "false",
   DB_SYNC_ALTER: process.env.DB_SYNC_ALTER ?? "false",
   DB_SYNC_FORCE: process.env.DB_SYNC_FORCE ?? "false",
 

@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: money-manager-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_SSL
+        value: "true"
+      - key: DB_SYNC_ALTER
+        value: "true"
+      - key: DB_SYNC_FORCE
+        value: "false"
+      # --- Điền trong Render dashboard ---
+      # DB_HOST        = <Aiven host>
+      # DB_PORT        = <Aiven port>
+      # DB_NAME        = defaultdb
+      # DB_USER        = avnadmin
+      # DB_PASSWORD    = <Aiven password>
+      # JWT_ACCESS_SECRET  = <random 64 chars>
+      # JWT_REFRESH_SECRET = <random 64 chars>
+      # MAIL_HOST      = smtp.gmail.com
+      # MAIL_PORT      = 587
+      # MAIL_USER      = your@gmail.com
+      # MAIL_PASS      = <gmail app password>
+      # GEMINI_API_KEY = <gemini key>
+      # CLIENT_URL     = https://your-app.vercel.app
+      # CLIENT_URLS    = https://your-app.vercel.app
+      # API_PUBLIC_URL = https://money-manager-api.onrender.com
+      # GOOGLE_CLIENT_ID     = ...
+      # GOOGLE_CLIENT_SECRET = ...
