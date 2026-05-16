@@ -22,6 +22,7 @@ import {
   createGoalSchema,
   updateGoalSchema,
   addToGoalSchema,
+  withdrawFromGoalSchema,
   createDebtSchema,
   updateDebtSchema,
   payDebtSchema,
@@ -60,6 +61,7 @@ goalRouter.get("/:id", goal.getGoal);
 goalRouter.put("/:id", validate(updateGoalSchema), goal.updateGoal);
 goalRouter.delete("/:id", goal.deleteGoal);
 goalRouter.post("/:id/add", validate(addToGoalSchema), goal.addToGoal);
+goalRouter.post("/:id/withdraw", validate(withdrawFromGoalSchema), goal.withdrawFromGoal);
 
 // ===== Debt =====
 export const debtRouter = express.Router();

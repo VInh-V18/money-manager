@@ -108,3 +108,26 @@ export const addToGoal = asyncHandler(async (req, res) => {
   }
   return ok(res, { goal: enrichGoal(g) }, "Da cap nhat tien tiet kiem");
 });
+
+export const withdrawFromGoal = asyncHandler(async (req, res) => {
+  const g = await FinancialGoal.findByPk(req.params.id);
+  if (!g) throw notFoundError();
+  if (g.userId !== req.user.id) throw forbiddenError();
+  if (g.status === "cancelled") {
+    throw badRequest("Muc tieu da huy");
+  }
+
+  const amount = Number(req.body.amount);
+  const current = Number(g.currentAmount);
+  if (amount > current) {
+    throw badRequest("So tien rut vuot qua so tien hien co trong muc tieu");
+  }
+
+  const data = { currentAmount: current - amount };
+  if (g.status === "completed" && data.currentAmount < Number(g.targetAmount)) {
+    data.status = "active";
+  }
+  await g.update(data);
+
+  return ok(res, { goal: enrichGoal(g) }, "Da rut tien khoi muc tieu");
+});

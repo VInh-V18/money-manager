@@ -21,6 +21,10 @@ export const addToGoalSchema = z.object({
   amount: z.coerce.number().positive(),
 });
 
+export const withdrawFromGoalSchema = z.object({
+  amount: z.coerce.number().positive(),
+});
+
 // ===== Debt =====
 export const createDebtSchema = z.object({
   walletId: z.coerce.number().int().positive().optional().nullable(),

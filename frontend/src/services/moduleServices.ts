@@ -55,6 +55,8 @@ export const goalService = {
   remove: (id: number) => api.delete(`/goals/${id}`).then((r) => r.data),
   addToGoal: (id: number, amount: number, note?: string) =>
     api.post(`/goals/${id}/add`, { amount, note }).then((r) => r.data.data),
+  withdrawFromGoal: (id: number, amount: number) =>
+    api.post(`/goals/${id}/withdraw`, { amount }).then((r) => r.data.data),
 };
 
 // ===== Debt =====
