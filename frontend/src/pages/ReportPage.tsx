@@ -40,6 +40,8 @@ const healthMeta = {
   risk: { label: "Rủi ro", color: "bg-destructive", text: "text-destructive" },
 } as const;
 
+type ImportErrorItem = { line: number; reason: string };
+
 export default function ReportPage() {
   const [range, setRange] = useState({
     from: toISODate(new Date(new Date().setDate(new Date().getDate() - 29))),
@@ -50,6 +52,7 @@ export default function ReportPage() {
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
   const [comparison, setComparison] = useState<MonthlyComparison | null>(null);
   const [forecast, setForecast] = useState<ForecastData | null>(null);
+  const [importErrors, setImportErrors] = useState<ImportErrorItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "csv" | "pdf" | "backup" | "restore" | "csv-import" | null>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -154,6 +157,7 @@ export default function ReportPage() {
     setExporting("csv-import");
     try {
       const result = await reportService.importTransactionsCsv(file);
+      setImportErrors(result.errors || []);
       toast.success(`Đã import ${result.imported} giao dịch, lỗi ${result.failed}`);
       void load({ silent: true });
     } catch (err) {
@@ -237,6 +241,25 @@ export default function ReportPage() {
           </div>
         </CardContent>
       </Card>
+
+      {importErrors.length > 0 && (
+        <Card className="mb-6 border-warning/40">
+          <CardHeader>
+            <CardTitle>Loi import CSV</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {importErrors.slice(0, 20).map((item) => (
+              <div key={`${item.line}-${item.reason}`} className="rounded-lg border px-3 py-2 text-sm">
+                <span className="font-medium">Dong {item.line}:</span>{" "}
+                <span className="text-muted-foreground">{item.reason}</span>
+              </div>
+            ))}
+            {importErrors.length > 20 && (
+              <p className="text-xs text-muted-foreground">Con {importErrors.length - 20} loi khac trong file.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {loading || !report ? (
         <Card><CardContent className="p-8">Đang tải báo cáo...</CardContent></Card>
