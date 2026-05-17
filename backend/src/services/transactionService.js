@@ -15,6 +15,9 @@ import {
   forbiddenError,
 } from "../utils/errors.js";
 import { createNotification } from "./notificationService.js";
+import { cache } from "../libs/redis.js";
+
+const invalidateAiContext = (userId) => cache.del(`ai:ctx:${userId}`);
 
 const todayDateOnly = () => new Date().toISOString().slice(0, 10);
 const daysAgoDateOnly = (days) => {
@@ -188,6 +191,7 @@ export const createTransactionWithBalance = async (
   // 4. cap nhat so du
   await applyToWallet(tx, +1, dbTx, "transaction_create");
   await detectAbnormalExpense(tx, dbTx);
+  invalidateAiContext(userId);
 
   return tx;
 };
@@ -227,6 +231,7 @@ export const updateTransactionWithBalance = async (
 
   // 5. ap dung GD moi
   await applyToWallet(oldTx, +1, dbTx, "transaction_update_apply");
+  invalidateAiContext(oldTx.userId);
 
   return oldTx;
 };
@@ -235,8 +240,10 @@ export const updateTransactionWithBalance = async (
  * Xoa giao dich + hoan tac so du
  */
 export const deleteTransactionWithBalance = async (tx, dbTx) => {
+  const userId = tx.userId;
   await applyToWallet(tx, -1, dbTx, "transaction_delete");
   await tx.destroy({ transaction: dbTx });
+  invalidateAiContext(userId);
 };
 
 export const restoreTransactionWithBalance = async (tx, dbTx, { allowNegative = true } = {}) => {

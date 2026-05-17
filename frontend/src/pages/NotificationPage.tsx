@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { notificationService } from "@/services/moduleServices";
 import { getErrorMessage } from "@/lib/axios";
 import { formatRelative } from "@/lib/utils";
+import { useNotificationStore } from "@/stores/useNotificationStore";
 import type { Notification } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -17,19 +18,22 @@ export default function NotificationPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [loading, setLoading] = useState(true);
+  const setGlobalUnread = useNotificationStore((s) => s.setUnreadCount);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await notificationService.list(1, 50, filter === "unread");
       setItems(Array.isArray(data.items) ? data.items : []);
-      setUnreadCount(data.unreadCount || 0);
+      const count = data.unreadCount || 0;
+      setUnreadCount(count);
+      setGlobalUnread(count);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, setGlobalUnread]);
   useEffect(() => { load(); }, [load]);
 
   const markRead = async (id: number) => {

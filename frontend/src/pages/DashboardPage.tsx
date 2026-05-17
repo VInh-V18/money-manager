@@ -77,8 +77,8 @@ export default function DashboardPage() {
         const monthRange = ranges.thisMonth;
         const stats = await reportService.dailyStats(monthRange.from, monthRange.to);
         setDailyStats(stats.items || []);
-      } catch (err) {
-        toast.error(getErrorMessage(err, "Không tải được dữ liệu mới"));
+      } catch {
+        // silent — background refresh, don't spam toasts
       }
     };
 
@@ -98,8 +98,8 @@ export default function DashboardPage() {
         const monthRange = ranges.thisMonth;
         const stats = await reportService.dailyStats(monthRange.from, monthRange.to);
         setDailyStats(stats.items || []);
-      } catch (err) {
-        toast.error(getErrorMessage(err, "Không tải được dữ liệu mới"));
+      } catch {
+        // silent — background refresh
       }
     };
 

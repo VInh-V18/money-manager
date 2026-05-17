@@ -62,12 +62,13 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
         return api(originalRequest);
-      } catch (refreshErr) {
+      } catch {
         useAuthStore.getState().clearState();
         if (window.location.pathname !== "/signin") {
           window.location.href = "/signin";
         }
-        return Promise.reject(refreshErr);
+        // Return pending promise so in-flight requests don't trigger error toasts before redirect
+        return new Promise(() => {});
       }
     }
 

@@ -26,9 +26,9 @@ const sequelize = new Sequelize(env.DB_NAME, env.DB_USER, env.DB_PASSWORD, {
 export const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log("✓ Ket noi MySQL thanh cong");
+    console.log("✓ Kết nối MySQL thành công");
   } catch (err) {
-    console.error("✗ Khong ket noi duoc MySQL:", err.message);
+    console.error("✗ Không kết nối được MySQL:", err.message);
     process.exit(1);
   }
 };

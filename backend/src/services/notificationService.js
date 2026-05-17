@@ -8,6 +8,7 @@ import {
   defaultTypePreferences,
 } from "../models/NotificationPreference.js";
 import { sendNotificationEmail } from "./mailService.js";
+import { emitToUser } from "../utils/socket.js";
 
 export const normalizeNotificationPreferences = (value = {}) => {
   const defaults = defaultTypePreferences();
@@ -90,6 +91,14 @@ export const createNotification = async (
       { userId, type, title, message, severity, relatedEntity },
       { transaction: dbTx }
     );
+    emitToUser(userId, "notification:new", {
+      id: notification.id,
+      type,
+      title,
+      message,
+      severity,
+      createdAt: notification.createdAt,
+    });
   }
 
   if (shouldSendEmail) {
@@ -106,7 +115,7 @@ export const createNotification = async (
           severity,
         });
       } catch (err) {
-        console.warn("Khong gui duoc email thong bao:", err.message);
+        console.warn("Không gửi được email thông báo:", err.message);
       }
     }
   }

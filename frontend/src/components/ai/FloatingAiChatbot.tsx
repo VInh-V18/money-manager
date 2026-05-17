@@ -103,6 +103,9 @@ const QUICK_ACTIONS: Array<{
   },
 ];
 
+const BUBBLE_SIZE = 56; // size-14 = 3.5rem
+const BUBBLE_PADDING = 8;
+
 const AnswerText = memo(function AnswerText({ text }: { text: string }) {
   return (
     <div className="space-y-1 text-sm leading-6">
@@ -154,6 +157,22 @@ export function FloatingAiChatbot() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Draggable bubble position (top/left in px)
+  const [bubblePos, setBubblePos] = useState<{ top: number; left: number } | null>(null);
+  const bubblePosRef = useRef({ top: 0, left: 0 });
+  const dragRef = useRef({ startPX: 0, startPY: 0, startTop: 0, startLeft: 0, moved: false });
+
+  useEffect(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const gapRight = W >= 1024 ? 24 : 16;
+    const gapBottom = W >= 1024 ? 24 : 80;
+    const top = H - gapBottom - BUBBLE_SIZE;
+    const left = W - gapRight - BUBBLE_SIZE;
+    bubblePosRef.current = { top, left };
+    setBubblePos({ top, left });
+  }, []);
+
   const activeAction = useMemo(
     () => QUICK_ACTIONS.find((item) => item.id === mode) || QUICK_ACTIONS[0],
     [mode]
@@ -163,6 +182,42 @@ export function FloatingAiChatbot() {
     if (!open) return;
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading, open]);
+
+  const handleBubblePointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      startPX: e.clientX,
+      startPY: e.clientY,
+      startTop: bubblePosRef.current.top,
+      startLeft: bubblePosRef.current.left,
+      moved: false,
+    };
+  }, []);
+
+  const handleBubblePointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const dx = e.clientX - dragRef.current.startPX;
+    const dy = e.clientY - dragRef.current.startPY;
+    if (!dragRef.current.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      dragRef.current.moved = true;
+    }
+    if (!dragRef.current.moved) return;
+    const newTop = Math.max(
+      BUBBLE_PADDING,
+      Math.min(window.innerHeight - BUBBLE_SIZE - BUBBLE_PADDING, dragRef.current.startTop + dy)
+    );
+    const newLeft = Math.max(
+      BUBBLE_PADDING,
+      Math.min(window.innerWidth - BUBBLE_SIZE - BUBBLE_PADDING, dragRef.current.startLeft + dx)
+    );
+    bubblePosRef.current = { top: newTop, left: newLeft };
+    setBubblePos({ top: newTop, left: newLeft });
+  }, []);
+
+  const handleBubblePointerUp = useCallback(() => {
+    if (!dragRef.current.moved) {
+      setOpen(true);
+    }
+  }, []);
 
   const submit = async (message = input, selectedMode: AiMode = mode) => {
     const clean = message.trim();
@@ -266,116 +321,125 @@ export function FloatingAiChatbot() {
   }, []);
 
   return (
-    <div className="fixed bottom-20 right-4 z-50 lg:bottom-6 lg:right-6">
-      {open ? (
-        <section className="flex h-[min(700px,calc(100dvh-9rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border bg-background shadow-2xl sm:w-[440px] lg:h-[min(700px,calc(100dvh-4rem))]">
-          <header className="flex items-center justify-between border-b px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Bot className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">AI tài chính</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {activeAction.label} · nhớ ngữ cảnh hội thoại
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon-sm" onClick={resetChat} aria-label="Xóa hội thoại AI">
-                <Trash2 className="size-4" />
-              </Button>
-              <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Đóng chatbot">
-                <X className="size-4" />
-              </Button>
-            </div>
-          </header>
-
-          <div className="border-b px-3 py-2">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {QUICK_ACTIONS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setMode(item.id)}
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition",
-                    mode === item.id ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
-                  )}
-                >
-                  <item.icon className="size-3.5" />
-                  {item.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => submit("Tổng chi tiêu tháng này là bao nhiêu?", "advisor")}
-                className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
-              >
-                <Sparkles className="size-3.5" />
-                Tổng chi
-              </button>
-            </div>
-          </div>
-
-          <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3">
-            {messages.map((message, index) => (
-              <MessageBubble key={`${message.role}-${index}`} message={message} />
-            ))}
-            {loading && (
-              <div className="inline-flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                <span className="size-2 animate-pulse rounded-full bg-primary" />
-                Gemini đang phân tích dữ liệu và ngữ cảnh...
-              </div>
-            )}
-          </div>
-
-          <div className="border-t p-3">
-            <div className="mb-2 flex flex-wrap gap-2">
-              {QUICK_ACTIONS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => runAction(item)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
-                >
-                  <Sparkles className="size-3.5" />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-end gap-2">
-              <Textarea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                rows={2}
-                placeholder="Hỏi tiếp, nhờ lập kế hoạch, kiểm tra rủi ro hoặc nhập giao dịch tự nhiên..."
-                className="max-h-32 min-h-[52px] resize-none"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    submit();
-                  }
-                }}
-              />
-              <Button size="icon" onClick={() => submit()} loading={loading} aria-label="Gửi câu hỏi">
-                <Send className="size-4" />
-              </Button>
-            </div>
-          </div>
-        </section>
-      ) : (
+    <>
+      {/* Draggable bubble — only shown when panel is closed */}
+      {!open && bubblePos && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onPointerDown={handleBubblePointerDown}
+          onPointerMove={handleBubblePointerMove}
+          onPointerUp={handleBubblePointerUp}
           aria-label="Mở AI tài chính"
-          className="relative flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-primary/20 transition hover:scale-105 active:scale-95"
+          style={{ top: bubblePos.top, left: bubblePos.left }}
+          className="fixed z-50 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-primary/20 touch-none select-none cursor-grab active:cursor-grabbing transition-shadow hover:shadow-2xl"
         >
           <MessageCircle className="size-6" />
         </button>
       )}
-    </div>
+
+      {/* Chat panel — fixed at bottom-right */}
+      {open && (
+        <div className="fixed bottom-20 right-4 z-50 lg:bottom-6 lg:right-6">
+          <section className="flex h-[min(700px,calc(100dvh-9rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border bg-background shadow-2xl sm:w-110 lg:h-[min(700px,calc(100dvh-4rem))]">
+            <header className="flex items-center justify-between border-b px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <Bot className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">AI tài chính</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {activeAction.label} · nhớ ngữ cảnh hội thoại
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon-sm" onClick={resetChat} aria-label="Xóa hội thoại AI">
+                  <Trash2 className="size-4" />
+                </Button>
+                <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Đóng chatbot">
+                  <X className="size-4" />
+                </Button>
+              </div>
+            </header>
+
+            <div className="border-b px-3 py-2">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {QUICK_ACTIONS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setMode(item.id)}
+                    className={cn(
+                      "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition",
+                      mode === item.id ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
+                    )}
+                  >
+                    <item.icon className="size-3.5" />
+                    {item.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => submit("Tổng chi tiêu tháng này là bao nhiêu?", "advisor")}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
+                >
+                  <Sparkles className="size-3.5" />
+                  Tổng chi
+                </button>
+              </div>
+            </div>
+
+            <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3">
+              {messages.map((message, index) => (
+                <MessageBubble key={`${message.role}-${index}`} message={message} />
+              ))}
+              {loading && (
+                <div className="inline-flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  <span className="size-2 animate-pulse rounded-full bg-primary" />
+                  Gemini đang phân tích dữ liệu và ngữ cảnh...
+                </div>
+              )}
+            </div>
+
+            <div className="border-t p-3">
+              <div className="mb-2 flex flex-wrap gap-2">
+                {QUICK_ACTIONS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => runAction(item)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
+                  >
+                    <Sparkles className="size-3.5" />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-end gap-2">
+                <Textarea
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  rows={2}
+                  placeholder="Hỏi tiếp, nhờ lập kế hoạch, kiểm tra rủi ro hoặc nhập giao dịch tự nhiên..."
+                  className="max-h-32 min-h-13 resize-none"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      submit();
+                    }
+                  }}
+                />
+                <Button size="icon" onClick={() => submit()} loading={loading} aria-label="Gửi câu hỏi">
+                  <Send className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }

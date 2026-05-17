@@ -41,6 +41,8 @@ const env = {
     .map((m) => m.trim())
     .filter(Boolean),
 
+  REDIS_URL: t("REDIS_URL"),
+
   UPLOAD_DIR: t("UPLOAD_DIR") || "uploads",
   MAX_FILE_SIZE: Number(t("MAX_FILE_SIZE")) || 5 * 1024 * 1024,
 

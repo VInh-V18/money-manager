@@ -1,5 +1,6 @@
 import { Op, fn, col, literal } from "sequelize";
 import env from "../config/env.js";
+import { cache } from "../libs/redis.js";
 import {
   Wallet,
   Category,
@@ -248,6 +249,20 @@ export const getFinancialContext = async (userId) => {
     })),
   };
 };
+
+const CONTEXT_TTL = 300; // 5 phút
+
+export const getFinancialContextCached = async (userId) => {
+  const key = `ai:ctx:${userId}`;
+  const cached = await cache.get(key);
+  if (cached) return cached;
+  const ctx = await getFinancialContext(userId);
+  await cache.set(key, ctx, CONTEXT_TTL);
+  return ctx;
+};
+
+export const invalidateFinancialContext = (userId) =>
+  cache.del(`ai:ctx:${userId}`);
 
 
 const extractGeminiText = (payload) => {
@@ -567,7 +582,7 @@ export const askFinancialAssistant = async (userId, { message, mode = "advisor",
     dbHistory = prevMessages.map((m) => ({ role: m.role, content: m.content }));
   }
 
-  const context = await getFinancialContext(userId);
+  const context = await getFinancialContextCached(userId);
   const prompt = buildSmartPrompt({ context, message, mode, history: dbHistory });
 
   let smartPayload = null;
@@ -640,5 +655,82 @@ export const askFinancialAssistant = async (userId, { message, mode = "advisor",
       totalBalance: context.totals.totalBalance,
       last30Days: context.totals.cashflow30,
     },
+  };
+};
+
+export const scanReceiptOcrService = async (imagePath) => {
+  if (!env.GEMINI_API_KEY) {
+    throw new AppError("Chưa cấu hình GEMINI_API_KEY trong backend/.env", 500);
+  }
+
+  const { readFileSync } = await import("fs");
+  const imageBuffer = readFileSync(imagePath);
+  const base64Image = imageBuffer.toString("base64");
+
+  const ext = (imagePath.split(".").pop() || "jpg").toLowerCase();
+  const mimeMap = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" };
+  const mimeType = mimeMap[ext] || "image/jpeg";
+
+  const todayStr = formatDate(today());
+  const prompt = `Bạn là trợ lý phân tích hóa đơn. Đọc ảnh hóa đơn/biên lai và trả về JSON (chỉ JSON, không giải thích thêm):
+{
+  "type": "expense" hoặc "income",
+  "amount": số tiền tổng cộng (số nguyên VND, không có dấu chấm/phẩy),
+  "description": tên hàng/dịch vụ ngắn gọn (tối đa 60 ký tự tiếng Việt),
+  "transactionDate": "YYYY-MM-DD" (dùng ${todayStr} nếu không rõ ngày),
+  "note": số hóa đơn hoặc thông tin thêm (hoặc ""),
+  "categoryName": tên danh mục tiếng Việt phù hợp (VD: Ăn uống, Di chuyển, Mua sắm, Hóa đơn, Sức khỏe, Giải trí...)
+}`;
+
+  let lastError = null;
+  let parsed = null;
+
+  for (const model of getGeminiModels()) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+        body: JSON.stringify({
+          contents: [{ parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const text = extractGeminiText(payload);
+        const jsonMatch = text?.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[0]);
+          } catch {
+            lastError = new AppError("Gemini trả về JSON không hợp lệ", 502);
+          }
+        } else {
+          lastError = new AppError("Không đọc được thông tin từ hóa đơn", 422);
+        }
+        break;
+      }
+
+      lastError = new AppError(payload?.error?.message || "Gemini Vision không phản hồi", response.status);
+      if (![429, 500, 502, 503, 504].includes(response.status)) break;
+      await sleep(700 * (attempt + 1));
+    }
+
+    if (!lastError) break;
+    if (![429, 500, 502, 503, 504].includes(lastError.statusCode)) break;
+  }
+
+  if (lastError) throw lastError;
+  if (!parsed) throw new AppError("Không đọc được thông tin từ hóa đơn", 422);
+
+  return {
+    type: ["income", "expense"].includes(parsed.type) ? parsed.type : "expense",
+    amount: Math.max(0, Math.round(Number(String(parsed.amount).replace(/[^\d]/g, "")) || 0)),
+    description: String(parsed.description || "").slice(0, 100),
+    transactionDate: /^\d{4}-\d{2}-\d{2}$/.test(parsed.transactionDate) ? parsed.transactionDate : todayStr,
+    note: String(parsed.note || "").slice(0, 200),
+    categoryName: String(parsed.categoryName || ""),
   };
 };

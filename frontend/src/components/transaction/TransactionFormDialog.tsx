@@ -3,6 +3,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { ScanLine } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -44,6 +45,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | undefined>();
   const [classifying, setClassifying] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -182,6 +184,30 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
       toast.error(getErrorMessage(err, "AI chưa phân loại được"));
     } finally {
       setClassifying(false);
+    }
+  };
+
+  const scanReceipt = async () => {
+    if (!receiptFile) return;
+    setScanning(true);
+    try {
+      const result = await aiService.scanReceipt(receiptFile);
+      setValue("type", result.type, { shouldDirty: true });
+      if (result.amount > 0) setValue("amount", result.amount, { shouldDirty: true });
+      if (result.description) setValue("description", result.description, { shouldDirty: true });
+      if (result.transactionDate) setValue("transactionDate", result.transactionDate, { shouldDirty: true });
+      if (result.note) setValue("note", result.note, { shouldDirty: true });
+      if (result.categoryName) {
+        const match = categories.find(
+          (c) => c.type === result.type && c.name.toLowerCase().includes(result.categoryName.toLowerCase().slice(0, 5))
+        );
+        if (match) setValue("categoryId", match.id, { shouldDirty: true });
+      }
+      toast.success("AI đã điền thông tin từ hóa đơn");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "AI chưa đọc được hóa đơn"));
+    } finally {
+      setScanning(false);
     }
   };
 
@@ -324,9 +350,30 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
             {receiptPreview && (
               <div className="space-y-2 overflow-hidden rounded-lg border p-2">
                 <img src={receiptPreview} alt="Ảnh hóa đơn" className="max-h-48 w-full object-contain bg-muted" />
-                <Button type="button" variant="outline" size="sm" onClick={removeReceipt} className="w-full">
-                  Gỡ ảnh hóa đơn
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  {receiptFile && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={scanReceipt}
+                      loading={scanning}
+                      className="w-full"
+                    >
+                      <ScanLine className="size-3.5" />
+                      Scan AI
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={removeReceipt}
+                    className={receiptFile ? "w-full" : "col-span-2 w-full"}
+                  >
+                    Gỡ ảnh
+                  </Button>
+                </div>
               </div>
             )}
           </div>

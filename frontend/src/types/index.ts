@@ -275,7 +275,12 @@ export interface Debt {
   status: "active" | "paid" | "overdue";
   note: string | null;
   lastDueNotifiedDate: string | null;
+  interestRate: string | number | null;
+  interestType: "none" | "simple" | "compound";
   remaining?: number;
+  interest?: number;
+  totalWithInterest?: number;
+  remainingWithInterest?: number;
 }
 
 // ===== Template =====
