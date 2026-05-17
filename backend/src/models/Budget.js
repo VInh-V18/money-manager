@@ -36,6 +36,7 @@ export default (sequelize) => {
         { fields: ["userId"] },
         { fields: ["userId", "isActive"] },
         { fields: ["userId", "isActive", "categoryId"] },
+        { fields: ["isActive", "rolloverEnabled"] },
         { fields: ["categoryId"] },
       ],
     }

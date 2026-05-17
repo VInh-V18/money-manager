@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   Brain,
@@ -103,7 +103,7 @@ const QUICK_ACTIONS: Array<{
   },
 ];
 
-function AnswerText({ text }: { text: string }) {
+const AnswerText = memo(function AnswerText({ text }: { text: string }) {
   return (
     <div className="space-y-1 text-sm leading-6">
       {text.split("\n").map((line, index) => {
@@ -124,7 +124,26 @@ function AnswerText({ text }: { text: string }) {
       })}
     </div>
   );
-}
+});
+
+const MessageBubble = memo(function MessageBubble({ message }: { message: ChatMessage }) {
+  return (
+    <div
+      className={cn(
+        "max-w-[88%] rounded-lg border px-3 py-2",
+        message.role === "user"
+          ? "ml-auto bg-primary text-primary-foreground"
+          : "bg-muted/40"
+      )}
+    >
+      {message.role === "assistant" ? (
+        <AnswerText text={message.content} />
+      ) : (
+        <p className="break-words text-sm leading-6">{message.content}</p>
+      )}
+    </div>
+  );
+});
 
 export function FloatingAiChatbot() {
   const [open, setOpen] = useState(false);
@@ -212,7 +231,7 @@ export function FloatingAiChatbot() {
     }
   };
 
-  const runAction = async (action: (typeof QUICK_ACTIONS)[number]) => {
+  const runAction = useCallback(async (action: (typeof QUICK_ACTIONS)[number]) => {
     if (loading) return;
     setOpen(true);
     setMode(action.id);
@@ -237,14 +256,14 @@ export function FloatingAiChatbot() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loading, sessionId]);
 
-  const resetChat = () => {
+  const resetChat = useCallback(() => {
     setMessages([WELCOME_MESSAGE]);
     setMode("advisor");
     setInput("");
     setSessionId(null);
-  };
+  }, []);
 
   return (
     <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
@@ -302,21 +321,7 @@ export function FloatingAiChatbot() {
 
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3">
             {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={cn(
-                  "max-w-[88%] rounded-lg border px-3 py-2",
-                  message.role === "user"
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "bg-muted/40"
-                )}
-              >
-                {message.role === "assistant" ? (
-                  <AnswerText text={message.content} />
-                ) : (
-                  <p className="break-words text-sm leading-6">{message.content}</p>
-                )}
-              </div>
+              <MessageBubble key={`${message.role}-${index}`} message={message} />
             ))}
             {loading && (
               <div className="inline-flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
