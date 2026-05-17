@@ -47,9 +47,6 @@ const env = {
   UPLOAD_DIR: process.env.UPLOAD_DIR || "uploads",
   MAX_FILE_SIZE: Number(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024,
 
-  DEMO_EMAIL: process.env.DEMO_EMAIL || "demo@money.local",
-  DEMO_PASSWORD: process.env.DEMO_PASSWORD || "Demo@1234",
-
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
   FACEBOOK_CLIENT_ID: process.env.FACEBOOK_CLIENT_ID || "",
