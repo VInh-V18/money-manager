@@ -29,11 +29,13 @@ import env from "../config/env.js";
 
 const COOKIE_OPTS = {
   httpOnly: true,
-  sameSite: "lax",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   secure: process.env.NODE_ENV === "production",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngay
   path: "/",
 };
+
+const trimTrailingSlash = (value = "") => value.replace(/\/+$/, "");
 
 export const signUp = asyncHandler(async (req, res) => {
   await signUpService(req.body);
@@ -57,11 +59,11 @@ export const signIn = asyncHandler(async (req, res) => {
 });
 
 const getOAuthRedirectUri = (req, provider) =>
-  `${env.API_PUBLIC_URL || `${req.protocol}://${req.get("host")}`}/api/auth/oauth/${provider}/callback`;
+  `${trimTrailingSlash(env.API_PUBLIC_URL || `${req.protocol}://${req.get("host")}`)}/api/auth/oauth/${provider}/callback`;
 
 const redirectOAuthError = (res, message) => {
   const params = new URLSearchParams({ error: message });
-  return res.redirect(`${env.CLIENT_URL}/oauth/callback?${params.toString()}`);
+  return res.redirect(`${trimTrailingSlash(env.CLIENT_URL)}/oauth/callback?${params.toString()}`);
 };
 
 export const oauthStart = asyncHandler(async (req, res) => {
@@ -70,11 +72,16 @@ export const oauthStart = asyncHandler(async (req, res) => {
     JSON.stringify({ provider, ts: Date.now() })
   ).toString("base64url");
 
-  const url = getOAuthStartUrl({
-    provider,
-    redirectUri: getOAuthRedirectUri(req, provider),
-    state,
-  });
+  let url;
+  try {
+    url = getOAuthStartUrl({
+      provider,
+      redirectUri: getOAuthRedirectUri(req, provider),
+      state,
+    });
+  } catch (error) {
+    return redirectOAuthError(res, error?.message || "OAuth chua duoc cau hinh");
+  }
 
   return res.redirect(url);
 });
@@ -104,7 +111,7 @@ export const oauthCallback = asyncHandler(async (req, res) => {
 
     res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
     const params = new URLSearchParams({ accessToken });
-    return res.redirect(`${env.CLIENT_URL}/oauth/callback?${params.toString()}`);
+    return res.redirect(`${trimTrailingSlash(env.CLIENT_URL)}/oauth/callback?${params.toString()}`);
   } catch (error) {
     return redirectOAuthError(
       res,

@@ -467,6 +467,7 @@ const oauthProviders = {
     clientSecret: () => env.GOOGLE_CLIENT_SECRET,
     scope: "openid email profile",
     mapProfile: (profile) => ({
+      providerUserId: profile.sub,
       email: profile.email,
       displayName: profile.name || profile.email,
       avatarUrl: profile.picture || null,
@@ -480,6 +481,7 @@ const oauthProviders = {
     clientSecret: () => env.FACEBOOK_CLIENT_SECRET,
     scope: "email,public_profile",
     mapProfile: (profile) => ({
+      providerUserId: profile.id,
       email: profile.email,
       displayName: profile.name || profile.email,
       avatarUrl: profile.picture?.data?.url || null,
@@ -494,6 +496,7 @@ const oauthProviders = {
     clientSecret: () => env.GITHUB_CLIENT_SECRET,
     scope: "read:user user:email",
     mapProfile: (profile, email) => ({
+      providerUserId: profile.id,
       email,
       displayName: profile.name || profile.login || email,
       avatarUrl: profile.avatar_url || null,
@@ -579,6 +582,12 @@ const fetchOAuthProfile = async (provider, accessToken) => {
   return config.mapProfile(profile, primary?.email || profile.email);
 };
 
+const buildOAuthEmail = (provider, profile) => {
+  if (profile.email) return profile.email;
+  if (!profile.providerUserId) return null;
+  return `${provider}_${profile.providerUserId}@oauth.local`;
+};
+
 const makeOAuthUsername = async (email) => {
   const base = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 40) || "oauth_user";
   let username = base;
@@ -599,17 +608,18 @@ export const signInWithOAuthService = async ({
 }) => {
   const oauthToken = await exchangeOAuthCode({ provider, code, redirectUri });
   const profile = await fetchOAuthProfile(provider, oauthToken);
-  if (!profile.email) throw unauthorizedError("Tài khoản OAuth không có email đã xác thực");
+  const email = buildOAuthEmail(provider, profile);
+  if (!email) throw unauthorizedError("Tai khoan OAuth khong co email");
 
-  let user = await User.findOne({ where: { email: profile.email } });
+  let user = await User.findOne({ where: { email } });
   if (!user) {
     user = await sequelize.transaction(async (dbTx) => {
       const createdUser = await User.create(
         {
-          username: await makeOAuthUsername(profile.email),
-          email: profile.email,
+          username: await makeOAuthUsername(email),
+          email,
           hashedPassword: await hashPassword(crypto.randomBytes(32).toString("hex")),
-          displayName: profile.displayName || profile.email,
+          displayName: profile.displayName || email,
           avatarUrl: profile.avatarUrl,
           isVerified: true,
           passwordChangedAt: new Date(),
