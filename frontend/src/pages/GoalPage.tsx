@@ -152,13 +152,13 @@ export default function GoalPage() {
   const handleWithdrawFromGoal = async () => {
     if (!withdrawingFrom || withdrawAmount <= 0) return;
     if (withdrawAmount > Number(withdrawingFrom.currentAmount)) {
-      toast.error("So tien rut vuot qua so tien hien co");
+      toast.error("Số tiền rút vượt quá số tiền hiện có");
       return;
     }
     setWithdrawing(true);
     try {
       await goalService.withdrawFromGoal(withdrawingFrom.id, withdrawAmount);
-      toast.success("Da rut tien khoi muc tieu");
+      toast.success("Đã rút tiền khỏi mục tiêu");
       setWithdrawingFrom(null);
       setWithdrawAmount(0);
       load();
@@ -395,23 +395,23 @@ export default function GoalPage() {
       <Dialog open={!!withdrawingFrom} onOpenChange={(o) => !o && setWithdrawingFrom(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Rut tien khoi "{withdrawingFrom?.name}"</DialogTitle>
+            <DialogTitle>Rút tiền khỏi "{withdrawingFrom?.name}"</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-              Hien co: {formatCurrency(withdrawingFrom?.currentAmount || 0)}
+              Hiện có: {formatCurrency(withdrawingFrom?.currentAmount || 0)}
             </div>
-            <Label>So tien rut</Label>
+            <Label>Số tiền rút</Label>
             <CurrencyInput value={withdrawAmount} onChange={setWithdrawAmount} className="text-xl h-12" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setWithdrawingFrom(null)}>Huy</Button>
+            <Button variant="outline" onClick={() => setWithdrawingFrom(null)}>Hủy</Button>
             <Button
               onClick={handleWithdrawFromGoal}
               loading={withdrawing}
               disabled={withdrawAmount <= 0 || withdrawAmount > Number(withdrawingFrom?.currentAmount || 0)}
             >
-              Xac nhan
+              Xác nhận
             </Button>
           </DialogFooter>
         </DialogContent>
