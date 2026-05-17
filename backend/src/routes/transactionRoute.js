@@ -23,6 +23,7 @@ router.get("/trash", ctrl.listDeletedTransactions);
 router.get("/", validate(listTransactionQuerySchema, "query"), ctrl.listTransactions);
 router.post("/", validate(createTransactionSchema), ctrl.createTransaction);
 router.post("/receipt", uploadImage.single("receipt"), ctrl.uploadTransactionReceipt);
+router.post("/receipt/ocr", uploadImage.single("receipt"), ctrl.scanReceiptOcr);
 router.delete("/bulk", validate(deleteTransactionsBulkSchema), ctrl.deleteTransactionsBulk);
 
 // helper api thu nhap theo ngay/gio

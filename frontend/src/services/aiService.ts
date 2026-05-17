@@ -78,6 +78,15 @@ export interface AiSpendingTotalResponse {
   count: number;
 }
 
+export interface AiReceiptOcrResponse {
+  type: "income" | "expense";
+  amount: number;
+  description: string;
+  transactionDate: string;
+  note: string;
+  categoryName: string;
+}
+
 export interface AiClassificationResponse {
   type: "income" | "expense";
   category: { id: number; name: string; type: "income" | "expense"; icon: string; color: string } | null;
@@ -115,4 +124,9 @@ export const aiService = {
   monthlyAnalysis: () => api.get("/ai/monthly-analysis").then((r) => r.data.data as AiChatResponse),
   savings: () => api.get("/ai/savings").then((r) => r.data.data as AiChatResponse),
   report: () => api.get("/ai/report").then((r) => r.data.data as AiChatResponse),
+  scanReceipt: (file: File) => {
+    const form = new FormData();
+    form.append("receipt", file);
+    return api.post("/transactions/receipt/ocr", form).then((r) => r.data.data as AiReceiptOcrResponse);
+  },
 };

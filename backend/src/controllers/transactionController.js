@@ -184,6 +184,13 @@ export const uploadTransactionReceipt = asyncHandler(async (req, res) => {
   return ok(res, { receiptUrl }, "Đã tải ảnh hóa đơn");
 });
 
+export const scanReceiptOcr = asyncHandler(async (req, res) => {
+  if (!req.file) throw badRequest("Vui lòng chọn ảnh hóa đơn");
+  const { scanReceiptOcrService } = await import("../services/aiService.js");
+  const result = await scanReceiptOcrService(req.file.path);
+  return ok(res, result, "Đã phân tích hóa đơn");
+});
+
 export const listDeletedTransactions = asyncHandler(async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));

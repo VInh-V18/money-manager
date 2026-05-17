@@ -46,6 +46,7 @@ export const openApiDocument = {
     "/categories": makePath("Quản lý danh mục", ["Categories"], ["get", "post"]),
     "/transactions": makePath("Quản lý giao dịch", ["Transactions"], ["get", "post"]),
     "/transactions/receipt": makePath("Upload ảnh hóa đơn giao dịch", ["Transactions"], ["post"]),
+    "/transactions/receipt/ocr": makePath("OCR hóa đơn bằng Gemini Vision", ["Transactions"], ["post"]),
     "/transactions/trash": makePath("Thùng rác giao dịch", ["Transactions"], ["get"]),
     "/transactions/bulk": makePath("Xóa nhiều giao dịch", ["Transactions"], ["delete"]),
     "/transactions/{id}/restore": makePath("Khôi phục giao dịch đã xóa", ["Transactions"], ["post"]),

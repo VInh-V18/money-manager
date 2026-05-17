@@ -34,7 +34,7 @@ import {
 // cron
 import { initCronJobs } from "./jobs/cronJobs.js";
 
-// Dam bao thu muc logs ton tai
+// Đảm bảo thư mục logs tồn tại
 const logsDir = path.resolve("logs");
 if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
@@ -47,7 +47,7 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:5173",
 ]);
 
-// ===== Bao mat & middleware co ban =====
+// ===== Bảo mật & middleware cơ bản =====
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
@@ -97,7 +97,7 @@ app.use("/api/admin", adminRoute);
 app.get("/api", (req, res) => {
   res.json({
     success: true,
-    message: "Money Manager API - Day du module",
+    message: "Money Manager API - Đầy đủ module",
     endpoints: {
       auth: "/api/auth/*",
       wallets: "/api/wallets/*",
@@ -129,13 +129,13 @@ const start = async () => {
   });
   initCronJobs();
   app.listen(env.PORT, () => {
-    logger.info(`Server chay tai http://localhost:${env.PORT}`);
+    logger.info(`Server chạy tại http://localhost:${env.PORT}`);
     logger.info(`Health check: http://localhost:${env.PORT}/api/health`);
   });
 };
 
 start().catch((err) => {
-  logger.error("Khoi dong server that bai:", err);
+  logger.error("Khởi động server thất bại:", err);
   process.exit(1);
 });
 
