@@ -124,7 +124,7 @@ app.use(errorHandler);
 const start = async () => {
   await connectDB();
   await syncModels({
-    alter: env.NODE_ENV === "development" && env.DB_SYNC_ALTER !== "false",
+    alter: env.DB_SYNC_ALTER === "true",
     force: env.DB_SYNC_FORCE === "true",
   });
   initCronJobs();
