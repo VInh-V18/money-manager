@@ -3,26 +3,26 @@ import { z } from "zod";
 export const signUpSchema = z.object({
   username: z
     .string()
-    .min(3, "Username toi thieu 3 ky tu")
-    .max(50, "Username toi da 50 ky tu")
-    .regex(/^[a-zA-Z0-9_]+$/, "Username chi gom chu, so, dau gach duoi"),
-  email: z.string().email("Email khong hop le").max(255),
+    .min(3, "Username tối thiểu 3 ký tự")
+    .max(50, "Username tối đa 50 ký tự")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username chỉ gồm chữ, số, dấu gạch dưới"),
+  email: z.string().email("Email không hợp lệ").max(255),
   password: z
     .string()
-    .min(8, "Mat khau toi thieu 8 ky tu")
-    .max(100, "Mat khau toi da 100 ky tu"),
-  displayName: z.string().min(1, "Vui long nhap ho ten").max(255),
+    .min(8, "Mật khẩu tối thiểu 8 ký tự")
+    .max(100, "Mật khẩu tối đa 100 ký tự"),
+  displayName: z.string().min(1, "Vui lòng nhập họ tên").max(255),
 });
 
 export const signInSchema = z.object({
   // co the dang nhap bang username hoac email
-  identifier: z.string().min(1, "Vui long nhap email hoac username"),
-  password: z.string().min(1, "Vui long nhap mat khau"),
+  identifier: z.string().min(1, "Vui lòng nhập email hoặc username"),
+  password: z.string().min(1, "Vui lòng nhập mật khẩu"),
 });
 
 export const verifyOtpSchema = z.object({
   email: z.string().email(),
-  code: z.string().length(6, "OTP gom 6 ky tu so"),
+  code: z.string().length(6, "OTP gồm 6 ký tự số"),
   // verify_email | reset_password
   purpose: z.enum(["verify_email", "reset_password"]),
 });

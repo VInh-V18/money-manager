@@ -125,26 +125,26 @@ export const exportBackupJson = asyncHandler(async (req, res) => {
 // === Restore JSON backup ===
 export const restoreBackupJson = asyncHandler(async (req, res) => {
   if (!req.file?.buffer) {
-    return res.status(400).json({ success: false, message: "Vui long chon file backup JSON" });
+    return res.status(400).json({ success: false, message: "Vui lòng chọn file backup JSON" });
   }
   const text = req.file.buffer.toString("utf8");
   let backup;
   try {
     backup = JSON.parse(text);
   } catch {
-    throw badRequest("File JSON khong hop le");
+    throw badRequest("File JSON không hợp lệ");
   }
   const result = await restoreUserBackupJson(req.user.id, backup);
-  return ok(res, result, "Restore backup thanh cong");
+  return ok(res, result, "Khôi phục backup thành công");
 });
 
 // === Import transaction CSV ===
 export const importTransactionsCsv = asyncHandler(async (req, res) => {
   if (!req.file?.buffer) {
-    throw badRequest("Vui long chon file CSV");
+    throw badRequest("Vui lòng chọn file CSV");
   }
   const result = await importTransactionsFromCsv(req.user.id, req.file.buffer.toString("utf8"));
-  return ok(res, result, `Da import ${result.imported} giao dich`);
+  return ok(res, result, `Đã import ${result.imported} giao dịch`);
 });
 
 // === Helper preset ranges (cho quick filter) ===

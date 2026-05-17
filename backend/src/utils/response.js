@@ -11,11 +11,11 @@ export const ok = (res, data = null, message = null, status = 200) => {
   });
 };
 
-export const created = (res, data, message = "Tao thanh cong") => {
+export const created = (res, data, message = "Tạo thành công") => {
   return ok(res, data, message, 201);
 };
 
-export const fail = (res, message = "Co loi xay ra", status = 400, errors = null) => {
+export const fail = (res, message = "Có lỗi xảy ra", status = 400, errors = null) => {
   return res.status(status).json({
     success: false,
     message,
@@ -23,14 +23,14 @@ export const fail = (res, message = "Co loi xay ra", status = 400, errors = null
   });
 };
 
-export const unauthorized = (res, message = "Chua dang nhap") => {
+export const unauthorized = (res, message = "Chưa đăng nhập") => {
   return fail(res, message, 401);
 };
 
-export const forbidden = (res, message = "Khong co quyen truy cap") => {
+export const forbidden = (res, message = "Không có quyền truy cập") => {
   return fail(res, message, 403);
 };
 
-export const notFound = (res, message = "Khong tim thay") => {
+export const notFound = (res, message = "Không tìm thấy") => {
   return fail(res, message, 404);
 };

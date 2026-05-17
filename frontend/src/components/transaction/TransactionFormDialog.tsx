@@ -303,7 +303,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
               <Input type="date" {...register("transactionDate")} />
             </div>
             <div className="space-y-2">
-              <Label>Gio</Label>
+              <Label>Giờ</Label>
               <Input type="time" {...register("transactionTime")} />
             </div>
           </div>
@@ -325,7 +325,7 @@ export function TransactionFormDialog({ open, onClose, transaction, onSaved }: P
               <div className="space-y-2 overflow-hidden rounded-lg border p-2">
                 <img src={receiptPreview} alt="Ảnh hóa đơn" className="max-h-48 w-full object-contain bg-muted" />
                 <Button type="button" variant="outline" size="sm" onClick={removeReceipt} className="w-full">
-                  Go anh hoa don
+                  Gỡ ảnh hóa đơn
                 </Button>
               </div>
             )}

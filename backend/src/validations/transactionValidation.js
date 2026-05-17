@@ -17,22 +17,22 @@ const subTypeEnum = z.enum([
 const idempotencyKeySchema = z
   .string()
   .trim()
-  .min(8, "Idempotency key qua ngan")
-  .max(100, "Idempotency key qua dai")
-  .regex(/^[a-zA-Z0-9:_-]+$/, "Idempotency key khong hop le");
+  .min(8, "Idempotency key quá ngắn")
+  .max(100, "Idempotency key quá dài")
+  .regex(/^[a-zA-Z0-9:_-]+$/, "Idempotency key không hợp lệ");
 
 export const createTransactionSchema = z.object({
   walletId: z.coerce.number().int().positive(),
   categoryId: z.coerce.number().int().positive().optional().nullable(),
   type: z.enum(["income", "expense"]),
   subType: subTypeEnum.default("regular"),
-  amount: z.coerce.number().positive("So tien phai > 0"),
+  amount: z.coerce.number().positive("Số tiền phải > 0"),
   description: z.string().max(255).optional().nullable(),
   note: z.string().max(1000).optional().nullable(),
-  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngay phai dang YYYY-MM-DD"),
+  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày phải dạng YYYY-MM-DD"),
   transactionTime: z
     .string()
-    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Gio phai dang HH:MM hoac HH:MM:SS")
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Giờ phải dạng HH:MM hoặc HH:MM:SS")
     .optional()
     .nullable(),
   receiptUrl: z.string().max(1000).optional().nullable(),
@@ -60,8 +60,8 @@ export const updateTransactionSchema = z.object({
 export const deleteTransactionsBulkSchema = z.object({
   ids: z
     .array(z.coerce.number().int().positive())
-    .min(1, "Chon it nhat 1 giao dich")
-    .max(100, "Chi duoc xoa toi da 100 giao dich moi lan"),
+    .min(1, "Chọn ít nhất 1 giao dịch")
+    .max(100, "Chỉ được xóa tối đa 100 giao dịch mỗi lần"),
 });
 
 export const listTransactionQuerySchema = z.object({

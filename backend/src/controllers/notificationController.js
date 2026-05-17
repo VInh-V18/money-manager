@@ -15,7 +15,7 @@ export const getPreferences = asyncHandler(async (req, res) => {
 
 export const updatePreferences = asyncHandler(async (req, res) => {
   const preference = await updateNotificationPreference(req.user.id, req.body);
-  return ok(res, { preferences: preference }, "Da cap nhat cai dat thong bao");
+  return ok(res, { preferences: preference }, "Đã cập nhật cài đặt thông báo");
 });
 
 export const listNotifications = asyncHandler(async (req, res) => {
@@ -64,7 +64,7 @@ export const markAllRead = asyncHandler(async (req, res) => {
     { isRead: true, readAt: new Date() },
     { where: { userId: req.user.id, isRead: false } }
   );
-  return ok(res, null, "Da danh dau tat ca da doc");
+  return ok(res, null, "Đã đánh dấu tất cả đã đọc");
 });
 
 export const deleteNotification = asyncHandler(async (req, res) => {
@@ -72,12 +72,12 @@ export const deleteNotification = asyncHandler(async (req, res) => {
   if (!n) throw notFoundError();
   if (n.userId !== req.user.id) throw forbiddenError();
   await n.destroy();
-  return ok(res, null, "Da xoa thong bao");
+  return ok(res, null, "Đã xóa thông báo");
 });
 
 export const deleteAllRead = asyncHandler(async (req, res) => {
   const cnt = await Notification.destroy({
     where: { userId: req.user.id, isRead: true },
   });
-  return ok(res, { deleted: cnt }, `Da xoa ${cnt} thong bao da doc`);
+  return ok(res, { deleted: cnt }, `Đã xóa ${cnt} thông báo đã đọc`);
 });

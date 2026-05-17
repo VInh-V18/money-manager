@@ -25,7 +25,7 @@ export const listWallets = asyncHandler(async (req, res) => {
 
 export const getWallet = asyncHandler(async (req, res) => {
   const wallet = await Wallet.findByPk(req.params.id);
-  if (!wallet) throw notFoundError("Khong tim thay vi");
+  if (!wallet) throw notFoundError("Không tìm thấy ví");
   if (wallet.userId !== req.user.id) throw forbiddenError();
   return ok(res, { wallet });
 });
@@ -45,12 +45,12 @@ export const createWallet = asyncHandler(async (req, res) => {
     payload: { newValue: wallet.toJSON() },
     ipAddress: req.ip,
   });
-  return created(res, { wallet }, "Tao vi thanh cong");
+  return created(res, { wallet }, "Tạo ví thành công");
 });
 
 export const updateWallet = asyncHandler(async (req, res) => {
   const wallet = await Wallet.findByPk(req.params.id);
-  if (!wallet) throw notFoundError("Khong tim thay vi");
+  if (!wallet) throw notFoundError("Không tìm thấy ví");
   if (wallet.userId !== req.user.id) throw forbiddenError();
 
   // KHONG cho update truc tiep balance/initialBalance qua API nay
@@ -65,12 +65,12 @@ export const updateWallet = asyncHandler(async (req, res) => {
     payload: { oldValue, newValue: wallet.toJSON() },
     ipAddress: req.ip,
   });
-  return ok(res, { wallet }, "Cap nhat vi thanh cong");
+  return ok(res, { wallet }, "Cập nhật ví thành công");
 });
 
 export const deleteWallet = asyncHandler(async (req, res) => {
   const wallet = await Wallet.findByPk(req.params.id);
-  if (!wallet) throw notFoundError("Khong tim thay vi");
+  if (!wallet) throw notFoundError("Không tìm thấy ví");
   if (wallet.userId !== req.user.id) throw forbiddenError();
 
   // check con giao dich active khong
@@ -78,7 +78,7 @@ export const deleteWallet = asyncHandler(async (req, res) => {
   if (txCount > 0) {
     return res.status(400).json({
       success: false,
-      message: `Vi nay con ${txCount} giao dich. Hay tat hoat dong thay vi xoa, hoac xoa cac giao dich truoc.`,
+      message: `Ví này còn ${txCount} giao dịch. Hãy tắt hoạt động thay vì xóa, hoặc xóa các giao dịch trước.`,
     });
   }
 
@@ -93,7 +93,7 @@ export const deleteWallet = asyncHandler(async (req, res) => {
     payload: { oldValue },
     ipAddress: req.ip,
   });
-  return ok(res, null, "Da xoa vi");
+  return ok(res, null, "Đã xóa ví");
 });
 
 export const transferMoney = asyncHandler(async (req, res) => {
@@ -110,13 +110,13 @@ export const transferMoney = asyncHandler(async (req, res) => {
     });
     return createdTransfer;
   });
-  return created(res, { transfer }, "Chuyen tien thanh cong");
+  return created(res, { transfer }, "Chuyển tiền thành công");
 });
 
 export const getWalletHistory = asyncHandler(async (req, res) => {
   const walletId = Number(req.params.id);
   const wallet = await Wallet.findByPk(walletId);
-  if (!wallet) throw notFoundError("Khong tim thay vi");
+  if (!wallet) throw notFoundError("Không tìm thấy ví");
   if (wallet.userId !== req.user.id) throw forbiddenError();
 
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -141,7 +141,7 @@ export const getWalletHistory = asyncHandler(async (req, res) => {
 export const getWalletBalanceHistory = asyncHandler(async (req, res) => {
   const walletId = Number(req.params.id);
   const wallet = await Wallet.findByPk(walletId);
-  if (!wallet) throw notFoundError("Khong tim thay vi");
+  if (!wallet) throw notFoundError("Không tìm thấy ví");
   if (wallet.userId !== req.user.id) throw forbiddenError();
 
   const page = Math.max(1, Number(req.query.page) || 1);

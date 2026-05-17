@@ -59,7 +59,7 @@ export const suggestBudgets = asyncHandler(async (req, res) => {
       spent,
       count: Number(row.get("count")) || 0,
       suggestedAmount: Math.max(50000, Math.round((spent * 0.9) / 10000) * 10000),
-      reason: "Dua tren chi tieu thang truoc, giam khoang 10% de tang tiet kiem.",
+      reason: "Dựa trên chi tiêu tháng trước, giảm khoảng 10% để tăng tiết kiệm.",
     };
   });
 
@@ -70,7 +70,7 @@ export const getBudget = asyncHandler(async (req, res) => {
   const b = await Budget.findByPk(req.params.id, {
     include: [{ model: Category }],
   });
-  if (!b) throw notFoundError("Khong tim thay ngan sach");
+  if (!b) throw notFoundError("Không tìm thấy ngân sách");
   if (b.userId !== req.user.id) throw forbiddenError();
   const calc = await calculateBudgetSpent(b);
   return ok(res, { budget: { ...b.toJSON(), ...calc } });
@@ -78,21 +78,21 @@ export const getBudget = asyncHandler(async (req, res) => {
 
 export const createBudget = asyncHandler(async (req, res) => {
   const b = await Budget.create({ ...req.body, userId: req.user.id });
-  return created(res, { budget: b }, "Tao ngan sach thanh cong");
+  return created(res, { budget: b }, "Tạo ngân sách thành công");
 });
 
 export const updateBudget = asyncHandler(async (req, res) => {
   const b = await Budget.findByPk(req.params.id);
-  if (!b) throw notFoundError("Khong tim thay ngan sach");
+  if (!b) throw notFoundError("Không tìm thấy ngân sách");
   if (b.userId !== req.user.id) throw forbiddenError();
   await b.update(req.body);
-  return ok(res, { budget: b }, "Cap nhat ngan sach thanh cong");
+  return ok(res, { budget: b }, "Cập nhật ngân sách thành công");
 });
 
 export const deleteBudget = asyncHandler(async (req, res) => {
   const b = await Budget.findByPk(req.params.id);
-  if (!b) throw notFoundError("Khong tim thay ngan sach");
+  if (!b) throw notFoundError("Không tìm thấy ngân sách");
   if (b.userId !== req.user.id) throw forbiddenError();
   await b.destroy();
-  return ok(res, null, "Da xoa ngan sach");
+  return ok(res, null, "Đã xóa ngân sách");
 });
