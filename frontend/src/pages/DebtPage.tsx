@@ -33,7 +33,7 @@ const schema = z.object({
   interestType: z.enum(["none", "simple", "compound"]).default("none"),
   note: z.string().optional(),
 });
-type FormData = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
 
 export default function DebtPage() {
   const [items, setItems] = useState<Debt[]>([]);
@@ -52,7 +52,7 @@ export default function DebtPage() {
   const [payDate, setPayDate] = useState(toISODate(new Date()));
   const [paying, setPaying] = useState(false);
 
-  const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: {
       type: "owed_by_me",
@@ -114,12 +114,14 @@ export default function DebtPage() {
     setFormOpen(true);
   };
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: FormInput) => {
     try {
+      const interestType = data.interestType || "none";
       const payload = {
         ...data,
+        interestType,
         dueDate: data.dueDate || null,
-        interestRate: data.interestType === "none" ? null : (data.interestRate ?? null),
+        interestRate: interestType === "none" ? null : (data.interestRate ?? null),
       };
       if (editing) {
         await debtService.update(editing.id, payload);

@@ -45,19 +45,27 @@ export const suggestBudgets = asyncHandler(async (req, res) => {
       transactionDate: { [Op.between]: [fromDate, toDate] },
     },
     attributes: ["categoryId", [fn("SUM", col("amount")), "spent"], [fn("COUNT", col("id")), "count"]],
-    include: [{ model: Category, attributes: ["id", "name", "icon", "color", "type"] }],
-    group: ["categoryId", "Category.id", "Category.name", "Category.icon", "Category.color", "Category.type"],
+    group: ["categoryId"],
     order: [[fn("SUM", col("amount")), "DESC"]],
     limit: 8,
+    raw: true,
   });
 
+  const categoryIds = rows.map((row) => row.categoryId).filter(Boolean);
+  const categories = await Category.findAll({
+    where: { userId: req.user.id, id: { [Op.in]: categoryIds } },
+    attributes: ["id", "name", "icon", "color", "type"],
+    raw: true,
+  });
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
+
   const items = rows.map((row) => {
-    const spent = Number(row.get("spent")) || 0;
+    const spent = Number(row.spent) || 0;
     return {
       categoryId: row.categoryId,
-      category: row.Category,
+      category: categoryById.get(row.categoryId) || null,
       spent,
-      count: Number(row.get("count")) || 0,
+      count: Number(row.count) || 0,
       suggestedAmount: Math.max(50000, Math.round((spent * 0.9) / 10000) * 10000),
       reason: "Dựa trên chi tiêu tháng trước, giảm khoảng 10% để tăng tiết kiệm.",
     };

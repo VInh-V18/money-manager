@@ -5,14 +5,14 @@ export default (sequelize) => {
     "User",
     {
       id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-      username: { type: DataTypes.STRING(100), allowNull: false, unique: true },
-      email: { type: DataTypes.STRING(255), allowNull: false, unique: true },
+      username: { type: DataTypes.STRING(100), allowNull: false, unique: "uniq_users_username" },
+      email: { type: DataTypes.STRING(255), allowNull: false, unique: "uniq_users_email" },
       hashedPassword: { type: DataTypes.STRING(255), allowNull: false },
       displayName: { type: DataTypes.STRING(255), allowNull: false },
       avatarUrl: { type: DataTypes.TEXT, allowNull: true },
       avatarId: { type: DataTypes.STRING(255), allowNull: true },
       bio: { type: DataTypes.STRING(500), allowNull: true },
-      phone: { type: DataTypes.STRING(20), allowNull: true, unique: true },
+      phone: { type: DataTypes.STRING(20), allowNull: true, unique: "uniq_users_phone" },
       isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
       role: {
         type: DataTypes.ENUM("USER", "ADMIN", "SUPER_ADMIN", "PREMIUM_USER", "SUPPORT", "AUDITOR"),
@@ -30,7 +30,7 @@ export default (sequelize) => {
     {
       tableName: "users",
       timestamps: true,
-      indexes: [{ fields: ["email"] }, { fields: ["username"] }, { fields: ["role"] }],
+      indexes: [{ fields: ["role"] }],
     }
   );
 
