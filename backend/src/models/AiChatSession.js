@@ -11,7 +11,10 @@ export default (sequelize) => {
     {
       tableName: "ai_chat_sessions",
       timestamps: true,
-      indexes: [{ fields: ["userId"] }],
+      indexes: [
+        { fields: ["userId"] },
+        { fields: ["userId", "createdAt"] },
+      ],
     }
   );
 

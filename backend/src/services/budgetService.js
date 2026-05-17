@@ -119,7 +119,7 @@ export const performBudgetRollover = async (userId = null) => {
       const { from: prevFrom, to: prevTo } = getBudgetPeriodRange(budget, prevRef);
       const { from: curFrom } = getBudgetPeriodRange(budget, ref);
 
-      if (curFrom !== formatDate(ref) && period !== "monthly") continue;
+      if (curFrom !== formatDate(ref)) continue;
 
       const spentWhere = {
         userId: budget.userId,
