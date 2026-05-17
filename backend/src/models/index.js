@@ -271,6 +271,23 @@ const patchLegacySchemaBeforeAlter = async () => {
     allowNull: false,
     defaultValue: "medium",
   });
+  // RefreshToken device info (added in newer schema)
+  await ensureColumn(qi, "refresh_tokens", "deviceName", {
+    type: DataTypes.STRING(120),
+    allowNull: true,
+  });
+  await ensureColumn(qi, "refresh_tokens", "browser", {
+    type: DataTypes.STRING(80),
+    allowNull: true,
+  });
+  await ensureColumn(qi, "refresh_tokens", "os", {
+    type: DataTypes.STRING(80),
+    allowNull: true,
+  });
+  await ensureColumn(qi, "refresh_tokens", "lastActiveAt", {
+    type: DataTypes.DATE,
+    allowNull: true,
+  });
   // Wallet credit card
   await ensureColumn(qi, "wallets", "creditLimit", {
     type: DataTypes.DECIMAL(18, 2),

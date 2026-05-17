@@ -47,8 +47,8 @@ export const errorHandler = (err, req, res, next) => {
   // loi unknown -> 500
   return res.status(500).json({
     success: false,
-    message: err.message || "Loi server, vui long thu lai",
-    type: err.name,
+    message:
+      env.NODE_ENV === "development" ? err.message : "Lỗi server, vui lòng thử lại",
     ...(env.NODE_ENV === "development" ? { stack: err.stack } : {}),
   });
 };
