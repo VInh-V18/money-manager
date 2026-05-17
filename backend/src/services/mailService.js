@@ -55,7 +55,7 @@ export const sendNotificationEmail = async ({ to, title, message, severity = "in
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">
         <h2 style="color:${color};margin:0 0 12px;">${title}</h2>
         <p style="font-size:15px;line-height:1.6;margin:0;">${message}</p>
-        <p style="color:#6b7280;font-size:13px;margin-top:24px;">Ban nhan email nay vi da bat thong bao email trong Money Manager.</p>
+        <p style="color:#6b7280;font-size:13px;margin-top:24px;">Bạn nhận email này vì đã bật thông báo email trong Money Manager.</p>
       </div>
     `,
   });

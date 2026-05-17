@@ -106,7 +106,7 @@ export const createNotification = async (
           severity,
         });
       } catch (err) {
-        console.warn("Khong gui duoc email thong bao:", err.message);
+        console.warn("Không gửi được email thông báo:", err.message);
       }
     }
   }

@@ -218,14 +218,12 @@ export default function TransactionPage() {
     ].slice(0, 10);
     writeSavedFilters(next);
     setSavedFilters(next);
-    toast.success("Đã lưu bộ lọc");
   };
 
   const applySavedFilter = (id: string) => {
     const item = savedFilters.find((saved) => saved.id === id);
     if (!item) return;
     setFilter({ ...item.filter, page: 1 });
-    toast.success(`Đã áp dụng bộ lọc "${item.name}"`);
   };
 
   const removeSavedFilter = (id: string) => {

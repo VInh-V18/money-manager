@@ -435,7 +435,7 @@ export const signInWith2FAService = async ({
   try {
     payload = verify2FAChallengeToken(twoFactorToken);
   } catch {
-    throw unauthorizedError("2FA challenge token khong hop le hoac da het han");
+    throw unauthorizedError("2FA challenge token không hợp lệ hoặc đã hết hạn");
   }
 
   const userId = payload.id;
@@ -503,9 +503,9 @@ const oauthProviders = {
 
 const getOAuthProvider = (provider) => {
   const config = oauthProviders[provider];
-  if (!config) throw badRequest("Nha cung cap OAuth khong hop le");
+  if (!config) throw badRequest("Nhà cung cấp OAuth không hợp lệ");
   if (!config.clientId() || !config.clientSecret()) {
-    throw badRequest(`Chua cau hinh OAuth ${provider}`);
+    throw badRequest(`Chưa cấu hình OAuth ${provider}`);
   }
   return config;
 };
@@ -546,7 +546,7 @@ const exchangeOAuthCode = async ({ provider, code, redirectUri }) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.access_token) {
-    throw unauthorizedError(data.error_description || "Khong lay duoc OAuth access token");
+    throw unauthorizedError(data.error_description || "Không lấy được OAuth access token");
   }
   return data.access_token;
 };
@@ -561,7 +561,7 @@ const fetchOAuthProfile = async (provider, accessToken) => {
     },
   });
   const profile = await profileRes.json().catch(() => ({}));
-  if (!profileRes.ok) throw unauthorizedError("Khong lay duoc thong tin OAuth user");
+  if (!profileRes.ok) throw unauthorizedError("Không lấy được thông tin OAuth user");
 
   if (provider !== "github") return config.mapProfile(profile);
 
@@ -599,7 +599,7 @@ export const signInWithOAuthService = async ({
 }) => {
   const oauthToken = await exchangeOAuthCode({ provider, code, redirectUri });
   const profile = await fetchOAuthProfile(provider, oauthToken);
-  if (!profile.email) throw unauthorizedError("Tai khoan OAuth khong co email da xac thuc");
+  if (!profile.email) throw unauthorizedError("Tài khoản OAuth không có email đã xác thực");
 
   let user = await User.findOne({ where: { email: profile.email } });
   if (!user) {
@@ -642,25 +642,25 @@ export const refreshTokenService = async (oldToken) => {
   const row = await RefreshToken.findOne({
     where: { token: oldToken, revoked: false },
   });
-  if (!row) throw unauthorizedError("Refresh token khong hop le");
+  if (!row) throw unauthorizedError("Refresh token không hợp lệ");
   if (row.expiresAt < new Date()) {
-    throw unauthorizedError("Refresh token het han");
+    throw unauthorizedError("Refresh token hết hạn");
   }
 
-  // verify chu ky
+  // verify chữ ký
   const { verifyRefreshToken } = await import("../utils/jwt.js");
   let payload;
   try {
     payload = verifyRefreshToken(oldToken);
   } catch {
-    throw unauthorizedError("Refresh token sai chu ky");
+    throw unauthorizedError("Refresh token sai chữ ký");
   }
   if (payload.id !== row.userId) {
-    throw unauthorizedError("Refresh token khong khop");
+    throw unauthorizedError("Refresh token không khớp");
   }
 
   const user = await User.findByPk(row.userId);
-  if (!user) throw unauthorizedError("User khong ton tai");
+  if (!user) throw unauthorizedError("User không tồn tại");
 
   await row.update({ lastActiveAt: new Date() });
   const accessToken = signAccessToken({ id: user.id });
@@ -702,7 +702,7 @@ export const revokeSessionService = async (userId, sessionId, currentRefreshToke
   const row = await RefreshToken.findOne({
     where: { id: sessionId, userId, revoked: false },
   });
-  if (!row) throw notFoundError("Khong tim thay phien dang nhap");
+  if (!row) throw notFoundError("Không tìm thấy phiên đăng nhập");
   await row.update({ revoked: true, revokedAt: new Date() });
   return { revokedCurrent: currentRefreshToken ? row.token === currentRefreshToken : false };
 };
@@ -761,10 +761,10 @@ export const listActivityLogsService = async (userId, { page = 1, limit = 20 } =
 
 export const changePasswordService = async (userId, { currentPassword, newPassword }) => {
   const user = await User.findByPk(userId);
-  if (!user) throw notFoundError("User khong ton tai");
+  if (!user) throw notFoundError("User không tồn tại");
 
   const ok = await comparePassword(currentPassword, user.hashedPassword);
-  if (!ok) throw badRequest("Mat khau hien tai khong dung");
+  if (!ok) throw badRequest("Mật khẩu hiện tại không đúng");
   assertStrongPassword(newPassword, { email: user.email, username: user.username });
 
   const reused = await comparePassword(newPassword, user.hashedPassword);

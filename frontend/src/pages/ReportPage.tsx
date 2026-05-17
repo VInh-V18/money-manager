@@ -111,7 +111,6 @@ export default function ReportPage() {
       const ext = kind === "excel" ? "xlsx" : kind;
       const res = await fn(range.from, range.to);
       downloadBlob(new Blob([res.data]), `bao-cao-${range.from}_${range.to}.${ext}`);
-      toast.success(`Đã tải ${kind.toUpperCase()}`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -124,7 +123,6 @@ export default function ReportPage() {
     try {
       const res = await reportService.exportBackupJson();
       downloadBlob(new Blob([res.data], { type: "application/json" }), `money-manager-backup-${toISODate(new Date())}.json`);
-      toast.success("Đã tải backup JSON");
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
