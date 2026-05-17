@@ -171,17 +171,17 @@ export const getTransaction = asyncHandler(async (req, res) => {
   const tx = await Transaction.findByPk(req.params.id, {
     include: [{ model: Wallet }, { model: Category }],
   });
-  if (!tx) throw notFoundError("Khong tim thay giao dich");
+  if (!tx) throw notFoundError("Không tìm thấy giao dịch");
   if (tx.userId !== req.user.id) throw forbiddenError();
   return ok(res, { transaction: tx });
 });
 
 export const uploadTransactionReceipt = asyncHandler(async (req, res) => {
   if (!req.file) {
-    throw badRequest("Vui long chon anh hoa don");
+    throw badRequest("Vui lòng chọn ảnh hóa đơn");
   }
   const receiptUrl = `/uploads/${req.file.filename}`;
-  return ok(res, { receiptUrl }, "Da tai anh hoa don");
+  return ok(res, { receiptUrl }, "Đã tải ảnh hóa đơn");
 });
 
 export const listDeletedTransactions = asyncHandler(async (req, res) => {
@@ -225,7 +225,7 @@ export const createTransaction = asyncHandler(async (req, res) => {
       return ok(
         res,
         { transaction: existing, idempotent: true },
-        "Giao dich da ton tai"
+        "Giao dịch đã tồn tại"
       );
     }
   }
@@ -237,11 +237,11 @@ export const createTransaction = asyncHandler(async (req, res) => {
   if (data.categoryId) {
     const cat = await Category.findByPk(data.categoryId);
     if (!cat || cat.userId !== req.user.id) {
-      throw badRequest("Danh muc khong hop le");
+      throw badRequest("Danh mục không hợp lệ");
     }
     if (cat.type !== data.type) {
       throw badRequest(
-        `Danh muc "${cat.name}" la ${cat.type === "income" ? "thu" : "chi"}, khong khop voi loai giao dich`
+        `Danh mục "${cat.name}" là ${cat.type === "income" ? "thu" : "chi"}, không khớp với loại giao dịch`
       );
     }
   }
@@ -266,13 +266,13 @@ export const createTransaction = asyncHandler(async (req, res) => {
   const full = await Transaction.findByPk(tx.id, {
     include: transactionInclude,
   });
-  return created(res, { transaction: full }, "Tao giao dich thanh cong");
+  return created(res, { transaction: full }, "Tạo giao dịch thành công");
 });
 
 // ===== Sua giao dich =====
 export const updateTransaction = asyncHandler(async (req, res) => {
   const tx = await Transaction.findByPk(req.params.id);
-  if (!tx) throw notFoundError("Khong tim thay giao dich");
+  if (!tx) throw notFoundError("Không tìm thấy giao dịch");
   if (tx.userId !== req.user.id) throw forbiddenError();
 
   const { allowNegative, ...data } = req.body;
@@ -281,12 +281,12 @@ export const updateTransaction = asyncHandler(async (req, res) => {
   if (data.categoryId) {
     const cat = await Category.findByPk(data.categoryId);
     if (!cat || cat.userId !== req.user.id) {
-      throw badRequest("Danh muc khong hop le");
+      throw badRequest("Danh mục không hợp lệ");
     }
     const newType = data.type ?? tx.type;
     if (cat.type !== newType) {
       throw badRequest(
-        `Danh muc "${cat.name}" khong khop voi loai giao dich`
+        `Danh mục "${cat.name}" không khớp với loại giao dịch`
       );
     }
   }
@@ -308,13 +308,13 @@ export const updateTransaction = asyncHandler(async (req, res) => {
   const full = await Transaction.findByPk(tx.id, {
     include: [{ model: Wallet }, { model: Category }],
   });
-  return ok(res, { transaction: full }, "Cap nhat giao dich thanh cong");
+  return ok(res, { transaction: full }, "Cập nhật giao dịch thành công");
 });
 
 // ===== Xoa giao dich =====
 export const deleteTransaction = asyncHandler(async (req, res) => {
   const tx = await Transaction.findByPk(req.params.id);
-  if (!tx) throw notFoundError("Khong tim thay giao dich");
+  if (!tx) throw notFoundError("Không tìm thấy giao dịch");
   if (tx.userId !== req.user.id) throw forbiddenError();
 
   await sequelize.transaction(async (dbTx) => {
@@ -330,7 +330,7 @@ export const deleteTransaction = asyncHandler(async (req, res) => {
       transaction: dbTx,
     });
   });
-  return ok(res, null, "Da xoa giao dich va hoan tac so du");
+  return ok(res, null, "Đã xóa giao dịch và hoàn tác số dư");
 });
 
 // ===== Xoa nhieu giao dich =====
@@ -345,7 +345,7 @@ export const deleteTransactionsBulk = asyncHandler(async (req, res) => {
   });
 
   if (transactions.length !== ids.length) {
-    throw badRequest("Mot so giao dich khong ton tai hoac khong thuoc ve ban");
+    throw badRequest("Một số giao dịch không tồn tại hoặc không thuộc về bạn");
   }
 
   await sequelize.transaction(async (dbTx) => {
@@ -367,15 +367,15 @@ export const deleteTransactionsBulk = asyncHandler(async (req, res) => {
   return ok(
     res,
     { deletedCount: transactions.length },
-    `Da xoa ${transactions.length} giao dich va hoan tac so du`
+    `Đã xóa ${transactions.length} giao dịch và hoàn tác số dư`
   );
 });
 
 export const restoreTransaction = asyncHandler(async (req, res) => {
   const tx = await Transaction.findByPk(req.params.id, { paranoid: false });
-  if (!tx) throw notFoundError("Khong tim thay giao dich");
+  if (!tx) throw notFoundError("Không tìm thấy giao dịch");
   if (tx.userId !== req.user.id) throw forbiddenError();
-  if (!tx.deletedAt) throw badRequest("Giao dich chua bi xoa");
+  if (!tx.deletedAt) throw badRequest("Giao dịch chưa bị xóa");
 
   await sequelize.transaction(async (dbTx) => {
     const oldValue = tx.toJSON();
@@ -394,7 +394,7 @@ export const restoreTransaction = asyncHandler(async (req, res) => {
   const full = await Transaction.findByPk(tx.id, {
     include: transactionInclude,
   });
-  return ok(res, { transaction: full }, "Da khoi phuc giao dich");
+  return ok(res, { transaction: full }, "Đã khôi phục giao dịch");
 });
 
 // ===== Helper: thu nhap theo ngay =====
@@ -411,7 +411,7 @@ export const createDailyWage = asyncHandler(async (req, res) => {
         type: "income",
         subType: "daily_wage",
         amount: totalAmount,
-        description: description || `Cong nhat ${numberOfDays} ngay`,
+        description: description || `Công nhật ${numberOfDays} ngày`,
         transactionDate: startDate,
         metadata: { dailyRate, numberOfDays, startDate },
       },
@@ -419,7 +419,7 @@ export const createDailyWage = asyncHandler(async (req, res) => {
     );
   });
 
-  return created(res, { transaction: tx }, "Da ghi nhan thu nhap theo ngay");
+  return created(res, { transaction: tx }, "Đã ghi nhận thu nhập theo ngày");
 });
 
 // ===== Helper: thu nhap theo gio =====
@@ -436,7 +436,7 @@ export const createHourlyWage = asyncHandler(async (req, res) => {
         type: "income",
         subType: "hourly_wage",
         amount: totalAmount,
-        description: description || `Lam ${numberOfHours}h`,
+        description: description || `Làm ${numberOfHours}h`,
         transactionDate: workDate,
         metadata: { hourlyRate, numberOfHours, shift },
       },
@@ -444,5 +444,5 @@ export const createHourlyWage = asyncHandler(async (req, res) => {
     );
   });
 
-  return created(res, { transaction: tx }, "Da ghi nhan thu nhap theo gio");
+  return created(res, { transaction: tx }, "Đã ghi nhận thu nhập theo giờ");
 });

@@ -38,7 +38,7 @@ export const createTemplate = asyncHandler(async (req, res) => {
     ...req.body,
     userId: req.user.id,
   });
-  return created(res, { template: t }, "Tao mau chi nhanh thanh cong");
+  return created(res, { template: t }, "Tạo mẫu chi nhanh thành công");
 });
 
 export const updateTemplate = asyncHandler(async (req, res) => {
@@ -54,7 +54,7 @@ export const deleteTemplate = asyncHandler(async (req, res) => {
   if (!t) throw notFoundError();
   if (t.userId !== req.user.id) throw forbiddenError();
   await t.destroy();
-  return ok(res, null, "Da xoa");
+  return ok(res, null, "Đã xóa");
 });
 
 /**
@@ -68,9 +68,9 @@ export const useTemplate = asyncHandler(async (req, res) => {
 
   const walletId = req.body.walletId ?? t.walletId;
   const amount = req.body.amount ?? t.defaultAmount;
-  if (!walletId) throw badRequest("Chua chon vi");
+  if (!walletId) throw badRequest("Chưa chọn ví");
   if (!amount || Number(amount) <= 0)
-    throw badRequest("So tien khong hop le");
+    throw badRequest("Số tiền không hợp lệ");
 
   const tx = await sequelize.transaction(async (dbTx) => {
     const newTx = await createTransactionWithBalance(
@@ -92,5 +92,5 @@ export const useTemplate = asyncHandler(async (req, res) => {
     return newTx;
   });
 
-  return created(res, { transaction: tx }, "Da tao giao dich tu mau");
+  return created(res, { transaction: tx }, "Đã tạo giao dịch từ mẫu");
 });

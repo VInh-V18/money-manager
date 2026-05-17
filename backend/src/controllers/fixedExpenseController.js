@@ -21,7 +21,7 @@ export const getFixedExpense = asyncHandler(async (req, res) => {
   const fe = await FixedExpense.findByPk(req.params.id, {
     include: [{ model: Wallet }, { model: Category }],
   });
-  if (!fe) throw notFoundError("Khong tim thay khoan chi co dinh");
+  if (!fe) throw notFoundError("Không tìm thấy khoản chi cố định");
   if (fe.userId !== req.user.id) throw forbiddenError();
   return ok(res, { fixedExpense: fe });
 });
@@ -34,12 +34,12 @@ export const createFixedExpense = asyncHandler(async (req, res) => {
     nextDueDate: req.body.startDate,
   };
   const fe = await FixedExpense.create(data);
-  return created(res, { fixedExpense: fe }, "Tao thanh cong");
+  return created(res, { fixedExpense: fe }, "Tạo thành công");
 });
 
 export const updateFixedExpense = asyncHandler(async (req, res) => {
   const fe = await FixedExpense.findByPk(req.params.id);
-  if (!fe) throw notFoundError("Khong tim thay khoan chi co dinh");
+  if (!fe) throw notFoundError("Không tìm thấy khoản chi cố định");
   if (fe.userId !== req.user.id) throw forbiddenError();
 
   // neu doi frequency hoac startDate -> reset nextDueDate
@@ -49,7 +49,7 @@ export const updateFixedExpense = asyncHandler(async (req, res) => {
   }
 
   await fe.update(data);
-  return ok(res, { fixedExpense: fe }, "Cap nhat thanh cong");
+  return ok(res, { fixedExpense: fe }, "Cập nhật thành công");
 });
 
 export const deleteFixedExpense = asyncHandler(async (req, res) => {
@@ -57,7 +57,7 @@ export const deleteFixedExpense = asyncHandler(async (req, res) => {
   if (!fe) throw notFoundError();
   if (fe.userId !== req.user.id) throw forbiddenError();
   await fe.destroy();
-  return ok(res, null, "Da xoa");
+  return ok(res, null, "Đã xóa");
 });
 
 /**
@@ -68,6 +68,6 @@ export const generateDue = asyncHandler(async (req, res) => {
   return ok(
     res,
     result,
-    `Da xu ly: ${result.generated} GD tao moi, ${result.warned} canh bao`
+    `Đã xử lý: ${result.generated} GD tạo mới, ${result.warned} cảnh báo`
   );
 });

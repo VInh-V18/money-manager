@@ -49,7 +49,7 @@ export const getGoal = asyncHandler(async (req, res) => {
 
 export const createGoal = asyncHandler(async (req, res) => {
   const g = await FinancialGoal.create({ ...req.body, userId: req.user.id });
-  return created(res, { goal: enrichGoal(g) }, "Tao muc tieu thanh cong");
+  return created(res, { goal: enrichGoal(g) }, "Tạo mục tiêu thành công");
 });
 
 export const updateGoal = asyncHandler(async (req, res) => {
@@ -57,7 +57,7 @@ export const updateGoal = asyncHandler(async (req, res) => {
   if (!g) throw notFoundError();
   if (g.userId !== req.user.id) throw forbiddenError();
   await g.update(req.body);
-  return ok(res, { goal: enrichGoal(g) }, "Cap nhat thanh cong");
+  return ok(res, { goal: enrichGoal(g) }, "Cập nhật thành công");
 });
 
 export const deleteGoal = asyncHandler(async (req, res) => {
@@ -65,7 +65,7 @@ export const deleteGoal = asyncHandler(async (req, res) => {
   if (!g) throw notFoundError();
   if (g.userId !== req.user.id) throw forbiddenError();
   await g.destroy();
-  return ok(res, null, "Da xoa muc tieu");
+  return ok(res, null, "Đã xóa mục tiêu");
 });
 
 export const addToGoal = asyncHandler(async (req, res) => {
@@ -73,7 +73,7 @@ export const addToGoal = asyncHandler(async (req, res) => {
   if (!g) throw notFoundError();
   if (g.userId !== req.user.id) throw forbiddenError();
   if (g.status !== "active") {
-    throw badRequest("Muc tieu da hoan tat hoac da huy");
+    throw badRequest("Mục tiêu đã hoàn tất hoặc đã hủy");
   }
 
   const targetAmount = Number(g.targetAmount);
@@ -90,8 +90,8 @@ export const addToGoal = asyncHandler(async (req, res) => {
     await createNotification(req.user.id, {
       type: "goal_progress",
       severity: "info",
-      title: "Muc tieu da hoan thanh",
-      message: `Ban da hoan thanh muc tieu "${g.name}".`,
+      title: "Mục tiêu đã hoàn thành",
+      message: `Bạn đã hoàn thành mục tiêu "${g.name}".`,
       relatedEntity: { entityType: "goal", entityId: g.id },
     });
   } else {
@@ -100,13 +100,13 @@ export const addToGoal = asyncHandler(async (req, res) => {
       await createNotification(req.user.id, {
         type: "goal_progress",
         severity: "info",
-        title: "Tien do muc tieu",
-        message: `Muc tieu "${g.name}" da dat ${milestone}%.`,
+        title: "Tiến độ mục tiêu",
+        message: `Mục tiêu "${g.name}" đã đạt ${milestone}%.`,
         relatedEntity: { entityType: "goal", entityId: g.id },
       });
     }
   }
-  return ok(res, { goal: enrichGoal(g) }, "Da cap nhat tien tiet kiem");
+  return ok(res, { goal: enrichGoal(g) }, "Đã cập nhật tiền tiết kiệm");
 });
 
 export const withdrawFromGoal = asyncHandler(async (req, res) => {
@@ -114,13 +114,13 @@ export const withdrawFromGoal = asyncHandler(async (req, res) => {
   if (!g) throw notFoundError();
   if (g.userId !== req.user.id) throw forbiddenError();
   if (g.status === "cancelled") {
-    throw badRequest("Muc tieu da huy");
+    throw badRequest("Mục tiêu đã hủy");
   }
 
   const amount = Number(req.body.amount);
   const current = Number(g.currentAmount);
   if (amount > current) {
-    throw badRequest("So tien rut vuot qua so tien hien co trong muc tieu");
+    throw badRequest("Số tiền rút vượt quá số tiền hiện có trong mục tiêu");
   }
 
   const data = { currentAmount: current - amount };
@@ -129,5 +129,5 @@ export const withdrawFromGoal = asyncHandler(async (req, res) => {
   }
   await g.update(data);
 
-  return ok(res, { goal: enrichGoal(g) }, "Da rut tien khoi muc tieu");
+  return ok(res, { goal: enrichGoal(g) }, "Đã rút tiền khỏi mục tiêu");
 });

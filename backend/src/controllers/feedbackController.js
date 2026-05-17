@@ -35,5 +35,5 @@ export const createFeedback = asyncHandler(async (req, res) => {
     ipAddress: req.ip,
   });
 
-  return created(res, { feedback }, "Da gui feedback");
+  return created(res, { feedback }, "Đã gửi feedback");
 });

@@ -33,7 +33,7 @@ export const getSession = asyncHandler(async (req, res) => {
 
 export const deleteSession = asyncHandler(async (req, res) => {
   const data = await deleteChatSession(req.user.id, Number(req.params.id));
-  return ok(res, data, "Da xoa phien chat");
+  return ok(res, data, "Đã xóa phiên chat");
 });
 
 export const context = asyncHandler(async (req, res) => {

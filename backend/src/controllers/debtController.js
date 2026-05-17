@@ -66,7 +66,7 @@ export const getDebt = asyncHandler(async (req, res) => {
 
 export const createDebt = asyncHandler(async (req, res) => {
   const d = await Debt.create({ ...req.body, userId: req.user.id });
-  return created(res, { debt: enrichDebt(d) }, "Tao thanh cong");
+  return created(res, { debt: enrichDebt(d) }, "Tạo thành công");
 });
 
 export const updateDebt = asyncHandler(async (req, res) => {
@@ -82,7 +82,7 @@ export const deleteDebt = asyncHandler(async (req, res) => {
   if (!d) throw notFoundError();
   if (d.userId !== req.user.id) throw forbiddenError();
   await d.destroy();
-  return ok(res, null, "Da xoa khoan no");
+  return ok(res, null, "Đã xóa khoản nợ");
 });
 
 /**
@@ -95,13 +95,13 @@ export const payDebt = asyncHandler(async (req, res) => {
   const d = await Debt.findByPk(req.params.id);
   if (!d) throw notFoundError();
   if (d.userId !== req.user.id) throw forbiddenError();
-  if (d.status === "paid") throw badRequest("Khoan no da tra het");
+  if (d.status === "paid") throw badRequest("Khoản nợ đã trả hết");
 
   const { amount, walletId, payDate, note } = req.body;
   const newPaid = Number(d.paidAmount) + Number(amount);
   if (newPaid > Number(d.amount)) {
     throw badRequest(
-      `So tien tra (${newPaid}) vuot tong no (${d.amount})`
+      `Số tiền trả (${newPaid}) vượt tổng nợ (${d.amount})`
     );
   }
 
@@ -138,5 +138,5 @@ export const payDebt = asyncHandler(async (req, res) => {
   });
 
   await d.reload();
-  return ok(res, { debt: enrichDebt(d) }, "Da ghi nhan thanh toan");
+  return ok(res, { debt: enrichDebt(d) }, "Đã ghi nhận thanh toán");
 });

@@ -40,7 +40,7 @@ export const signUp = asyncHandler(async (req, res) => {
   return created(
     res,
     { email: req.body.email },
-    "Dang ky thanh cong. Ban co the dang nhap ngay."
+    "Đăng ký thành công. Bạn có thể đăng nhập ngay."
   );
 });
 
@@ -53,7 +53,7 @@ export const signIn = asyncHandler(async (req, res) => {
   });
 
   res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
-  return ok(res, { user, accessToken }, "Dang nhap thanh cong");
+  return ok(res, { user, accessToken }, "Đăng nhập thành công");
 });
 
 const getOAuthRedirectUri = (req, provider) =>
@@ -90,7 +90,7 @@ export const oauthCallback = asyncHandler(async (req, res) => {
   }
 
   if (!req.query.code) {
-    return redirectOAuthError(res, "Khong nhan duoc ma xac thuc OAuth");
+    return redirectOAuthError(res, "Không nhận được mã xác thực OAuth");
   }
 
   try {
@@ -108,7 +108,7 @@ export const oauthCallback = asyncHandler(async (req, res) => {
   } catch (error) {
     return redirectOAuthError(
       res,
-      error?.message || "Dang nhap bang OAuth khong thanh cong"
+      error?.message || "Đăng nhập bằng OAuth không thành công"
     );
   }
 });
@@ -117,7 +117,7 @@ export const signOut = asyncHandler(async (req, res) => {
   const token = req.cookies?.refreshToken;
   await signOutService(token);
   res.clearCookie("refreshToken", { path: "/" });
-  return ok(res, null, "Dang xuat thanh cong");
+  return ok(res, null, "Đăng xuất thành công");
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
@@ -125,7 +125,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
   if (!token) {
     return res
       .status(401)
-      .json({ success: false, message: "Khong co refresh token" });
+      .json({ success: false, message: "Không có refresh token" });
   }
   const { accessToken } = await refreshTokenService(token);
   return ok(res, { accessToken });
@@ -133,12 +133,12 @@ export const refreshToken = asyncHandler(async (req, res) => {
 
 export const verifyEmail = asyncHandler(async (req, res) => {
   await verifyOtpService({ ...req.body, purpose: "verify_email" });
-  return ok(res, null, "Xac thuc email thanh cong");
+  return ok(res, null, "Xác thực email thành công");
 });
 
 export const resendVerifyOtp = asyncHandler(async (req, res) => {
   await resendOtpService({ email: req.body.email, purpose: "verify_email" });
-  return ok(res, null, "Da gui lai OTP");
+  return ok(res, null, "Đã gửi lại OTP");
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {
@@ -146,7 +146,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   return ok(
     res,
     data,
-    "Neu email ton tai, OTP da duoc gui. Vui long kiem tra hop thu."
+    "Nếu email tồn tại, OTP đã được gửi. Vui lòng kiểm tra hộp thư."
   );
 });
 
@@ -155,12 +155,12 @@ export const verifyResetOtp = asyncHandler(async (req, res) => {
     ...req.body,
     purpose: "reset_password",
   });
-  return ok(res, { resetToken }, "OTP hop le. Hay dat lai mat khau.");
+  return ok(res, { resetToken }, "OTP hợp lệ. Hãy đặt lại mật khẩu.");
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
   await resetPasswordService(req.body);
-  return ok(res, null, "Dat lai mat khau thanh cong. Hay dang nhap lai.");
+  return ok(res, null, "Đặt lại mật khẩu thành công. Hãy đăng nhập lại.");
 });
 
 // ===== Profile (private) =====
@@ -172,23 +172,23 @@ export const updateProfile = asyncHandler(async (req, res) => {
   await req.user.update(req.body);
   const safe = req.user.toJSON();
   delete safe.hashedPassword;
-  return ok(res, { user: safe }, "Cap nhat ho so thanh cong");
+  return ok(res, { user: safe }, "Cập nhật hồ sơ thành công");
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
   await changePasswordService(req.user.id, req.body);
-  return ok(res, null, "Doi mat khau thanh cong. Hay dang nhap lai.");
+  return ok(res, null, "Đổi mật khẩu thành công. Hãy đăng nhập lại.");
 });
 
 export const uploadAvatar = asyncHandler(async (req, res) => {
   if (!req.file) {
     return res
       .status(400)
-      .json({ success: false, message: "Khong co file upload" });
+      .json({ success: false, message: "Không có file upload" });
   }
   const url = `/uploads/${req.file.filename}`;
   await req.user.update({ avatarUrl: url, avatarId: req.file.filename });
-  return ok(res, { avatarUrl: url }, "Cap nhat avatar thanh cong");
+  return ok(res, { avatarUrl: url }, "Cập nhật avatar thành công");
 });
 
 export const listSessions = asyncHandler(async (req, res) => {
@@ -205,12 +205,12 @@ export const revokeSession = asyncHandler(async (req, res) => {
   if (revokedCurrent) {
     res.clearCookie("refreshToken", { path: "/" });
   }
-  return ok(res, { revokedCurrent }, "Da dang xuat phien");
+  return ok(res, { revokedCurrent }, "Đã đăng xuất phiên");
 });
 
 export const revokeOtherSessions = asyncHandler(async (req, res) => {
   const data = await revokeOtherSessionsService(req.user.id, req.cookies?.refreshToken);
-  return ok(res, data, "Da dang xuat cac thiet bi khac");
+  return ok(res, data, "Đã đăng xuất các thiết bị khác");
 });
 
 export const loginHistory = asyncHandler(async (req, res) => {
@@ -227,7 +227,7 @@ export const activityLogs = asyncHandler(async (req, res) => {
 
 export const setup2FA = asyncHandler(async (req, res) => {
   const data = await generate2FASecret(req.user.id);
-  return ok(res, data, "Quet QR code bang Google Authenticator roi xac nhan bang /2fa/enable");
+  return ok(res, data, "Quét QR code bằng Google Authenticator rồi xác nhận bằng /2fa/enable");
 });
 
 export const enable2FAHandler = asyncHandler(async (req, res) => {
@@ -236,20 +236,20 @@ export const enable2FAHandler = asyncHandler(async (req, res) => {
   return ok(
     res,
     data,
-    "Bat 2FA thanh cong. Hay luu backup codes de phong truong hop mat dien thoai"
+    "Bật 2FA thành công. Hãy lưu backup codes để phòng trường hợp mất điện thoại"
   );
 });
 
 export const disable2FAHandler = asyncHandler(async (req, res) => {
   const { password } = req.body;
   const data = await disable2FA(req.user.id, password);
-  return ok(res, data, "Da tat 2FA");
+  return ok(res, data, "Đã tắt 2FA");
 });
 
 export const regenerateBackupCodesHandler = asyncHandler(async (req, res) => {
   const { password } = req.body;
   const data = await regenerateBackupCodes(req.user.id, password);
-  return ok(res, data, "Tao lai backup codes thanh cong. Backup codes cu da bi huy");
+  return ok(res, data, "Tạo lại backup codes thành công. Backup codes cũ đã bị huỷ");
 });
 
 export const signInWith2FA = asyncHandler(async (req, res) => {
@@ -262,5 +262,5 @@ export const signInWith2FA = asyncHandler(async (req, res) => {
     ipAddress: req.ip,
   });
   res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
-  return ok(res, { user, accessToken }, "Dang nhap 2FA thanh cong");
+  return ok(res, { user, accessToken }, "Đăng nhập 2FA thành công");
 });

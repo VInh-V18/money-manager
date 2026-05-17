@@ -36,27 +36,27 @@ const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
 const DEFAULT_INCOME_CATS = [
-  { name: "Luong", icon: "briefcase", color: "#10B981" },
-  { name: "Thuong", icon: "gift", color: "#10B981" },
-  { name: "Lam them", icon: "clock", color: "#10B981" },
+  { name: "Lương", icon: "briefcase", color: "#10B981" },
+  { name: "Thưởng", icon: "gift", color: "#10B981" },
+  { name: "Làm thêm", icon: "clock", color: "#10B981" },
   { name: "Freelance", icon: "laptop", color: "#10B981" },
-  { name: "Ban hang", icon: "shopping-bag", color: "#10B981" },
-  { name: "Duoc cho", icon: "heart", color: "#10B981" },
-  { name: "Hoan tien", icon: "rotate-ccw", color: "#10B981" },
-  { name: "Khac", icon: "more-horizontal", color: "#10B981" },
+  { name: "Bán hàng", icon: "shopping-bag", color: "#10B981" },
+  { name: "Được cho", icon: "heart", color: "#10B981" },
+  { name: "Hoàn tiền", icon: "rotate-ccw", color: "#10B981" },
+  { name: "Khác", icon: "more-horizontal", color: "#10B981" },
 ];
 
 const DEFAULT_EXPENSE_CATS = [
-  { name: "An uong", icon: "utensils", color: "#EF4444" },
-  { name: "Di lai", icon: "car", color: "#F97316" },
-  { name: "Nha o", icon: "home", color: "#A855F7" },
-  { name: "Hoc tap", icon: "book", color: "#3B82F6" },
-  { name: "Giai tri", icon: "music", color: "#EC4899" },
-  { name: "Mua sam", icon: "shopping-cart", color: "#F59E0B" },
-  { name: "Suc khoe", icon: "heart-pulse", color: "#14B8A6" },
-  { name: "Gia dinh", icon: "users", color: "#8B5CF6" },
-  { name: "Tra no", icon: "credit-card", color: "#DC2626" },
-  { name: "Khac", icon: "more-horizontal", color: "#6B7280" },
+  { name: "Ăn uống", icon: "utensils", color: "#EF4444" },
+  { name: "Di lại", icon: "car", color: "#F97316" },
+  { name: "Nhà ở", icon: "home", color: "#A855F7" },
+  { name: "Học tập", icon: "book", color: "#3B82F6" },
+  { name: "Giải trí", icon: "music", color: "#EC4899" },
+  { name: "Mua sắm", icon: "shopping-cart", color: "#F59E0B" },
+  { name: "Sức khỏe", icon: "heart-pulse", color: "#14B8A6" },
+  { name: "Gia đình", icon: "users", color: "#8B5CF6" },
+  { name: "Trả nợ", icon: "credit-card", color: "#DC2626" },
+  { name: "Khác", icon: "more-horizontal", color: "#6B7280" },
 ];
 
 const generateOtp = () =>
@@ -96,18 +96,18 @@ const assertStrongPassword = (password, { email, username } = {}) => {
   ]);
 
   if (value.length < 8) {
-    throw badRequest("Mat khau phai co toi thieu 8 ky tu");
+    throw badRequest("Mật khẩu phải có tối thiểu 8 ký tự");
   }
   if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value) || !/[^A-Za-z0-9]/.test(value)) {
-    throw badRequest("Mat khau phai co chu hoa, chu thuong, so va ky tu dac biet");
+    throw badRequest("Mật khẩu phải có chữ hoa, chữ thường, số và ký tự đặc biệt");
   }
   if (weakPasswords.has(normalized)) {
-    throw badRequest("Mat khau qua yeu, vui long chon mat khau kho doan hon");
+    throw badRequest("Mật khẩu quá yếu, vui lòng chọn mật khẩu khó đoán hơn");
   }
   const emailName = email ? String(email).split("@")[0].toLowerCase() : "";
   const usernameValue = username ? String(username).toLowerCase() : "";
   if ((emailName && normalized.includes(emailName)) || (usernameValue && normalized.includes(usernameValue))) {
-    throw badRequest("Mat khau khong duoc chua email hoac username");
+    throw badRequest("Mật khẩu không được chứa email hoặc username");
   }
 };
 
