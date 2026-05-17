@@ -416,8 +416,9 @@ export default function ReportPage() {
               {dailyStats.length === 0 ? (
                 <EmptyState title="Chưa có dữ liệu" />
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={dailyStats}>
+                <div className="mx-auto h-[300px] w-full min-w-0 overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dailyStats} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="date" tickFormatter={(d) => d.slice(5)} fontSize={11} />
                     <YAxis
@@ -435,8 +436,9 @@ export default function ReportPage() {
                     <Legend />
                     <Bar dataKey="income" name="Thu" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expense" name="Chi" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -449,8 +451,9 @@ export default function ReportPage() {
               {weeklyStats.length === 0 ? (
                 <EmptyState title="Chưa có dữ liệu tuần" />
               ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={weeklyStats}>
+                <div className="mx-auto h-[280px] w-full min-w-0 overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyStats} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="weekStart" tickFormatter={(d) => d.slice(5)} fontSize={11} />
                     <YAxis
@@ -473,8 +476,9 @@ export default function ReportPage() {
                     <Bar dataKey="income" name="Thu" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expense" name="Chi" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="net" name="Còn lại" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -487,25 +491,32 @@ export default function ReportPage() {
                 {expensePie.length === 0 ? (
                   <EmptyState title="Chưa có chi tiêu" />
                 ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
+                  <div className="mx-auto h-[280px] w-full max-w-[360px] min-w-0 overflow-hidden">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
                         data={expensePie}
                         dataKey="total"
                         nameKey={(d) => d.category?.name || "Khác"}
                         cx="50%"
-                        cy="50%"
-                        outerRadius={90}
-                        innerRadius={50}
+                        cy="46%"
+                        outerRadius="66%"
+                        innerRadius="38%"
                       >
                         {expensePie.map((c, i) => (
                           <Cell key={i} fill={c.category?.color || "#6B7280"} />
                         ))}
                       </Pie>
                       <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                      <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                      <Legend
+                        iconSize={10}
+                        align="center"
+                        verticalAlign="bottom"
+                        wrapperStyle={{ fontSize: 12, left: 0, right: 0 }}
+                      />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -516,25 +527,32 @@ export default function ReportPage() {
                 {incomePie.length === 0 ? (
                   <EmptyState title="Chưa có thu nhập" />
                 ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
+                  <div className="mx-auto h-[280px] w-full max-w-[360px] min-w-0 overflow-hidden">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Pie
                         data={incomePie}
                         dataKey="total"
                         nameKey={(d) => d.category?.name || "Khác"}
                         cx="50%"
-                        cy="50%"
-                        outerRadius={90}
-                        innerRadius={50}
+                        cy="46%"
+                        outerRadius="66%"
+                        innerRadius="38%"
                       >
                         {incomePie.map((c, i) => (
                           <Cell key={i} fill={c.category?.color || "#10B981"} />
                         ))}
                       </Pie>
                       <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                      <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                      <Legend
+                        iconSize={10}
+                        align="center"
+                        verticalAlign="bottom"
+                        wrapperStyle={{ fontSize: 12, left: 0, right: 0 }}
+                      />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
               </CardContent>
             </Card>
