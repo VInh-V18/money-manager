@@ -516,7 +516,7 @@ const TEMPLATE_FIELDS = [
 
 export const restoreUserBackupJson = async (userId, backup) => {
   if (!backup || backup.app !== "money-manager" || !backup.data) {
-    throw badRequest("File backup khong hop le");
+    throw badRequest("File backup không hợp lệ");
   }
 
   const data = backup.data;

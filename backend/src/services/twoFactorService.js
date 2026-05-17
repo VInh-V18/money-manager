@@ -16,8 +16,8 @@ const makeTOTP = (secret) =>
 // Tao secret + QR code URL, chua luu vao DB (user phai verify truoc)
 export const generate2FASecret = async (userId) => {
   const user = await User.findByPk(userId);
-  if (!user) throw badRequest("Nguoi dung khong ton tai");
-  if (user.twoFactorEnabled) throw badRequest("2FA da duoc bat");
+  if (!user) throw badRequest("Người dùng không tồn tại");
+  if (user.twoFactorEnabled) throw badRequest("2FA đã được bật");
 
   const secret = new OTPAuth.Secret({ size: 20 });
   const totp = new OTPAuth.TOTP({ issuer: APP_NAME, label: user.email, algorithm: "SHA1", digits: 6, period: 30, secret });
@@ -32,13 +32,13 @@ export const generate2FASecret = async (userId) => {
 // Xac nhan token TOTP va bat 2FA, tra ve backup codes
 export const enable2FA = async (userId, token) => {
   const user = await User.findByPk(userId);
-  if (!user) throw badRequest("Nguoi dung khong ton tai");
-  if (user.twoFactorEnabled) throw badRequest("2FA da duoc bat");
-  if (!user.twoFactorSecret) throw badRequest("Chua tao 2FA secret, goi /2fa/setup truoc");
+  if (!user) throw badRequest("Người dùng không tồn tại");
+  if (user.twoFactorEnabled) throw badRequest("2FA đã được bật");
+  if (!user.twoFactorSecret) throw badRequest("Chưa tạo 2FA secret, gọi /2fa/setup trước");
 
   const totp = makeTOTP(OTPAuth.Secret.fromBase32(user.twoFactorSecret));
   const delta = totp.validate({ token: String(token), window: 1 });
-  if (delta === null) throw badRequest("Ma TOTP khong dung hoac da het han");
+  if (delta === null) throw badRequest("Mã TOTP không đúng hoặc đã hết hạn");
 
   await user.update({ twoFactorEnabled: true });
 
@@ -49,28 +49,28 @@ export const enable2FA = async (userId, token) => {
 // Tat 2FA sau khi xac nhan mat khau
 export const disable2FA = async (userId, password) => {
   const user = await User.findByPk(userId);
-  if (!user) throw badRequest("Nguoi dung khong ton tai");
-  if (!user.twoFactorEnabled) throw badRequest("2FA chua duoc bat");
+  if (!user) throw badRequest("Người dùng không tồn tại");
+  if (!user.twoFactorEnabled) throw badRequest("2FA chưa được bật");
 
   const isPasswordValid = await comparePassword(password, user.hashedPassword);
-  if (!isPasswordValid) throw unauthorizedError("Mat khau khong dung");
+  if (!isPasswordValid) throw unauthorizedError("Mật khẩu không đúng");
 
   await user.update({ twoFactorEnabled: false, twoFactorSecret: null });
   await TwoFactorBackupCode.destroy({ where: { userId } });
 
-  return { message: "Da tat 2FA thanh cong" };
+  return { message: "Đã tắt 2FA thành công" };
 };
 
 // Xac nhan TOTP token khi dang nhap
 export const verify2FAToken = async (userId, token) => {
   const user = await User.findByPk(userId);
   if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
-    throw badRequest("2FA chua duoc cau hinh");
+    throw badRequest("2FA chưa được cấu hình");
   }
 
   const totp = makeTOTP(OTPAuth.Secret.fromBase32(user.twoFactorSecret));
   const delta = totp.validate({ token: String(token), window: 1 });
-  if (delta === null) throw unauthorizedError("Ma TOTP khong dung hoac da het han");
+  if (delta === null) throw unauthorizedError("Mã TOTP không đúng hoặc đã hết hạn");
 
   return true;
 };
@@ -78,7 +78,7 @@ export const verify2FAToken = async (userId, token) => {
 // Dung backup code khi mat dien thoai
 export const useBackupCode = async (userId, rawCode) => {
   const user = await User.findByPk(userId);
-  if (!user || !user.twoFactorEnabled) throw badRequest("2FA chua duoc bat");
+  if (!user || !user.twoFactorEnabled) throw badRequest("2FA chưa được bật");
 
   const codes = await TwoFactorBackupCode.findAll({
     where: { userId, usedAt: null },
@@ -92,17 +92,17 @@ export const useBackupCode = async (userId, rawCode) => {
     }
   }
 
-  throw unauthorizedError("Backup code khong dung hoac da duoc su dung");
+  throw unauthorizedError("Backup code không đúng hoặc đã được sử dụng");
 };
 
 // Tao lai backup codes (xoa cu, tao moi)
 export const regenerateBackupCodes = async (userId, password) => {
   const user = await User.findByPk(userId);
-  if (!user) throw badRequest("Nguoi dung khong ton tai");
-  if (!user.twoFactorEnabled) throw badRequest("2FA chua duoc bat");
+  if (!user) throw badRequest("Người dùng không tồn tại");
+  if (!user.twoFactorEnabled) throw badRequest("2FA chưa được bật");
 
   const isPasswordValid = await comparePassword(password, user.hashedPassword);
-  if (!isPasswordValid) throw unauthorizedError("Mat khau khong dung");
+  if (!isPasswordValid) throw unauthorizedError("Mật khẩu không đúng");
 
   await TwoFactorBackupCode.destroy({ where: { userId } });
   const backupCodes = await _generateBackupCodes(userId);

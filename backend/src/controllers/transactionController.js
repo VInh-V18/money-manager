@@ -31,7 +31,7 @@ const getIdempotencyKey = (req, bodyKey) => {
 const assertValidIdempotencyKey = (key) => {
   if (!key) return;
   if (key.length < 8 || key.length > 100 || !/^[a-zA-Z0-9:_-]+$/.test(key)) {
-    throw badRequest("Idempotency key khong hop le");
+    throw badRequest("Idempotency key không hợp lệ");
   }
 };
 

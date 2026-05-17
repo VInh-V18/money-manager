@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createCategorySchema = z.object({
-  name: z.string().min(1, "Vui long nhap ten danh muc").max(100),
+  name: z.string().min(1, "Vui lòng nhập tên danh mục").max(100),
   type: z.enum(["income", "expense"]),
   icon: z.string().max(50).default("folder"),
   color: z.string().max(20).default("#6B7280"),

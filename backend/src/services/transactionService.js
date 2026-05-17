@@ -63,7 +63,7 @@ const applyToWallet = async (tx, sign, dbTx, reason = "transaction") => {
     transaction: dbTx,
     lock: dbTx.LOCK.UPDATE, // pessimistic lock -> tranh race condition
   });
-  if (!wallet) throw notFoundError("Vi khong ton tai");
+  if (!wallet) throw notFoundError("Ví không tồn tại");
 
   const amount = Number(tx.amount);
   const delta =
@@ -97,8 +97,8 @@ const applyToWallet = async (tx, sign, dbTx, reason = "transaction") => {
       {
         type: "low_balance",
         severity: "warning",
-        title: "So du vi thap",
-        message: `Vi "${wallet.name}" con ${newBalance}, thap hon nguong ${threshold}.`,
+        title: "Số dư ví thấp",
+        message: `Ví "${wallet.name}" còn ${newBalance}, thấp hơn ngưỡng ${threshold}.`,
         relatedEntity: { entityType: "wallet", entityId: wallet.id },
       },
       dbTx
@@ -114,10 +114,10 @@ const applyToWallet = async (tx, sign, dbTx, reason = "transaction") => {
 const checkBalance = async (walletId, amount, type, allowNegative, dbTx) => {
   if (type !== "expense" || allowNegative) return;
   const wallet = await Wallet.findByPk(walletId, { transaction: dbTx });
-  if (!wallet) throw notFoundError("Vi khong ton tai");
+  if (!wallet) throw notFoundError("Ví không tồn tại");
   if (Number(wallet.balance) < Number(amount)) {
     throw badRequest(
-      `So du khong du. Vi "${wallet.name}" hien co ${wallet.balance}, can ${amount}`
+      `Số dư không đủ. Ví "${wallet.name}" hiện có ${wallet.balance}, cần ${amount}`
     );
   }
 };
@@ -148,8 +148,8 @@ const detectAbnormalExpense = async (tx, dbTx) => {
     {
       type: "abnormal_spending",
       severity: "warning",
-      title: "Chi tieu bat thuong",
-      message: `Khoan chi ${amount} cao hon muc trung binh ${Math.round(average)} trong 90 ngay gan day.`,
+      title: "Chi tiêu bất thường",
+      message: `Khoản chi ${amount} cao hơn mức trung bình ${Math.round(average)} trong 90 ngày gần đây.`,
       relatedEntity: { entityType: "transaction", entityId: tx.id },
     },
     dbTx
@@ -167,8 +167,8 @@ export const createTransactionWithBalance = async (
 ) => {
   // 1. validate vi thuoc user
   const wallet = await Wallet.findByPk(data.walletId, { transaction: dbTx });
-  if (!wallet) throw notFoundError("Vi khong ton tai");
-  if (wallet.userId !== userId) throw forbiddenError("Vi khong thuoc ve ban");
+  if (!wallet) throw notFoundError("Ví không tồn tại");
+  if (wallet.userId !== userId) throw forbiddenError("Ví không thuộc về bạn");
 
   // 2. check so du
   await checkBalance(
@@ -211,9 +211,9 @@ export const updateTransactionWithBalance = async (
   const targetWalletId = newData.walletId ?? oldTx.walletId;
   if (targetWalletId !== oldTx.walletId) {
     const newWallet = await Wallet.findByPk(targetWalletId, { transaction: dbTx });
-    if (!newWallet) throw notFoundError("Vi moi khong ton tai");
+    if (!newWallet) throw notFoundError("Ví mới không tồn tại");
     if (newWallet.userId !== oldTx.userId) {
-      throw forbiddenError("Vi moi khong thuoc ve ban");
+      throw forbiddenError("Ví mới không thuộc về bạn");
     }
   }
 
@@ -260,7 +260,7 @@ export const transferBetweenWallets = async (userId, data, dbTx) => {
   const { fromWalletId, toWalletId, amount, fee = 0, transferDate, note } = data;
 
   if (fromWalletId === toWalletId) {
-    throw badRequest("Vi nguon va vi dich phai khac nhau");
+    throw badRequest("Ví nguồn và ví đích phải khác nhau");
   }
 
   const [fromWallet, toWallet] = await Promise.all([
@@ -274,15 +274,15 @@ export const transferBetweenWallets = async (userId, data, dbTx) => {
     }),
   ]);
 
-  if (!fromWallet || !toWallet) throw notFoundError("Vi khong ton tai");
+  if (!fromWallet || !toWallet) throw notFoundError("Ví không tồn tại");
   if (fromWallet.userId !== userId || toWallet.userId !== userId) {
-    throw forbiddenError("Vi khong thuoc ve ban");
+    throw forbiddenError("Ví không thuộc về bạn");
   }
 
   const totalDeduct = Number(amount) + Number(fee);
   if (Number(fromWallet.balance) < totalDeduct) {
     throw badRequest(
-      `So du khong du. Vi nguon "${fromWallet.name}" can ${totalDeduct}`
+      `Số dư không đủ. Ví nguồn "${fromWallet.name}" cần ${totalDeduct}`
     );
   }
 

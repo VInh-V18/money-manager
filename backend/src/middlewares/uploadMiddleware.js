@@ -25,7 +25,7 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
   if (!allowed.test(file.originalname)) {
-    return cb(new Error("Chi cho phep upload anh"), false);
+    return cb(new Error("Chỉ cho phép upload ảnh"), false);
   }
   cb(null, true);
 };
@@ -40,7 +40,7 @@ export const uploadJson = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     if (!/\.json$/i.test(file.originalname) && file.mimetype !== "application/json") {
-      return cb(new Error("Chi cho phep upload file JSON"), false);
+      return cb(new Error("Chỉ cho phép upload file JSON"), false);
     }
     cb(null, true);
   },
@@ -51,7 +51,7 @@ export const uploadCsv = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     if (!/\.csv$/i.test(file.originalname) && !/csv/i.test(file.mimetype || "")) {
-      return cb(new Error("Chi cho phep upload file CSV"), false);
+      return cb(new Error("Chỉ cho phép upload file CSV"), false);
     }
     cb(null, true);
   },

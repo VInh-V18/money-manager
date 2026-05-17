@@ -10,7 +10,7 @@ export const protectedRoute = async (req, res, next) => {
   try {
     const auth = req.headers.authorization;
     if (!auth || !auth.startsWith("Bearer ")) {
-      return next(unauthorizedError("Thieu access token"));
+      return next(unauthorizedError("Thiếu access token"));
     }
     const token = auth.split(" ")[1];
     const payload = verifyAccessToken(token);
@@ -18,7 +18,7 @@ export const protectedRoute = async (req, res, next) => {
     const user = await User.findByPk(payload.id, {
       attributes: { exclude: ["hashedPassword"] },
     });
-    if (!user) return next(unauthorizedError("User khong ton tai"));
+    if (!user) return next(unauthorizedError("User không tồn tại"));
 
     req.user = user;
     next();
@@ -30,7 +30,7 @@ export const protectedRoute = async (req, res, next) => {
 export const requireAdmin = (req, res, next) => {
   const allowed = new Set(["ADMIN", "SUPER_ADMIN", "SUPPORT", "AUDITOR"]);
   if (!req.user || !allowed.has(req.user.role)) {
-    return res.status(403).json({ success: false, message: "Khong co quyen admin" });
+    return res.status(403).json({ success: false, message: "Không có quyền admin" });
   }
   next();
 };
@@ -49,10 +49,10 @@ export const ownerOnly = (Model, paramName = "id", attachAs = "resource") => {
       const id = req.params[paramName];
       const item = await Model.findByPk(id);
       if (!item) {
-        return res.status(404).json({ success: false, message: "Khong tim thay" });
+        return res.status(404).json({ success: false, message: "Không tìm thấy" });
       }
       if (item.userId !== req.user.id) {
-        return res.status(403).json({ success: false, message: "Khong co quyen" });
+        return res.status(403).json({ success: false, message: "Không có quyền" });
       }
       req[attachAs] = item;
       next();
