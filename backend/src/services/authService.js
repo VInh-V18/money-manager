@@ -48,7 +48,7 @@ const DEFAULT_INCOME_CATS = [
 
 const DEFAULT_EXPENSE_CATS = [
   { name: "Ăn uống", icon: "utensils", color: "#EF4444" },
-  { name: "Di lại", icon: "car", color: "#F97316" },
+  { name: "Đi lại", icon: "car", color: "#F97316" },
   { name: "Nhà ở", icon: "home", color: "#A855F7" },
   { name: "Học tập", icon: "book", color: "#3B82F6" },
   { name: "Giải trí", icon: "music", color: "#EC4899" },
