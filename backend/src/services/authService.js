@@ -200,8 +200,8 @@ export const signUpService = async ({ username, email, password, displayName }) 
   if (existing) {
     throw conflictError(
       existing.email === email
-        ? "Email da duoc dang ky"
-        : "Username da duoc su dung"
+        ? "Email đã được đăng ký"
+        : "Username đã được sử dụng"
     );
   }
 
@@ -233,7 +233,7 @@ export const signUpService = async ({ username, email, password, displayName }) 
  */
 export const verifyOtpService = async ({ email, code, purpose }) => {
   const user = await User.findOne({ where: { email } });
-  if (!user) throw notFoundError("Email khong ton tai");
+  if (!user) throw notFoundError("Email không tồn tại");
 
   const otp = await Otp.findOne({
     where: {
@@ -245,7 +245,7 @@ export const verifyOtpService = async ({ email, code, purpose }) => {
     },
     order: [["createdAt", "DESC"]],
   });
-  if (!otp) throw badRequest("OTP khong dung hoac da het han");
+  if (!otp) throw badRequest("OTP không đúng hoặc đã hết hạn");
 
   await otp.update({ used: true });
 
@@ -268,7 +268,7 @@ export const verifyOtpService = async ({ email, code, purpose }) => {
 
 export const resendOtpService = async ({ email, purpose }) => {
   const user = await User.findOne({ where: { email } });
-  if (!user) throw notFoundError("Email khong ton tai");
+  if (!user) throw notFoundError("Email không tồn tại");
 
   // huy OTP cu cung purpose chua dung
   await Otp.update(
@@ -303,11 +303,11 @@ export const forgotPasswordService = async ({ email }) => {
 
 export const resetPasswordService = async ({ email, resetToken, newPassword }) => {
   const user = await User.findOne({ where: { email } });
-  if (!user) throw notFoundError("Email khong ton tai");
+  if (!user) throw notFoundError("Email không tồn tại");
   assertStrongPassword(newPassword, { email: user.email, username: user.username });
 
   const reused = await comparePassword(newPassword, user.hashedPassword);
-  if (reused) throw badRequest("Mat khau moi khong duoc trung mat khau cu");
+  if (reused) throw badRequest("Mật khẩu mới không được trùng mật khẩu cũ");
 
   const tokenRow = await Otp.findOne({
     where: {
@@ -319,7 +319,7 @@ export const resetPasswordService = async ({ email, resetToken, newPassword }) =
     },
     order: [["createdAt", "DESC"]],
   });
-  if (!tokenRow) throw badRequest("Reset token khong hop le hoac da het han");
+  if (!tokenRow) throw badRequest("Reset token không hợp lệ hoặc đã hết hạn");
 
   await sequelize.transaction(async (dbTx) => {
     await user.update(
@@ -358,7 +358,7 @@ export const signInService = async ({ identifier, password, userAgent, ipAddress
       userAgent,
       ipAddress,
     });
-    throw unauthorizedError("Sai thong tin dang nhap");
+    throw unauthorizedError("Sai thông tin đăng nhập");
   }
 
   if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -370,7 +370,7 @@ export const signInService = async ({ identifier, password, userAgent, ipAddress
       userAgent,
       ipAddress,
     });
-    throw unauthorizedError("Tai khoan dang bi khoa tam thoi. Vui long thu lai sau");
+    throw unauthorizedError("Tài khoản đang bị khóa tạm thời. Vui lòng thử lại sau");
   }
 
   const ok = await comparePassword(password, user.hashedPassword);
@@ -393,8 +393,8 @@ export const signInService = async ({ identifier, password, userAgent, ipAddress
     });
     throw unauthorizedError(
       shouldLock
-        ? `Sai mat khau qua ${MAX_FAILED_LOGIN_ATTEMPTS} lan. Tai khoan bi khoa ${LOCK_MINUTES} phut`
-        : "Sai thong tin dang nhap"
+        ? `Sai mật khẩu quá ${MAX_FAILED_LOGIN_ATTEMPTS} lần. Tài khoản bị khóa ${LOCK_MINUTES} phút`
+        : "Sai thông tin đăng nhập"
     );
   }
 
@@ -768,7 +768,7 @@ export const changePasswordService = async (userId, { currentPassword, newPasswo
   assertStrongPassword(newPassword, { email: user.email, username: user.username });
 
   const reused = await comparePassword(newPassword, user.hashedPassword);
-  if (reused) throw badRequest("Mat khau moi khong duoc trung mat khau cu");
+  if (reused) throw badRequest("Mật khẩu mới không được trùng mật khẩu cũ");
 
   await sequelize.transaction(async (dbTx) => {
     await user.update(

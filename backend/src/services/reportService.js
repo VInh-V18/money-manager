@@ -62,15 +62,15 @@ const getFinancialHealth = async (userId, summary) => {
   const warningBudgets = budgets.filter((budget) => budget.isWarning && !budget.isExceeded).length;
 
   const deductions = [];
-  if (summary.income <= 0) deductions.push({ key: "no_income", points: 15, message: "Chua co thu nhap trong khoang nay" });
-  if (summary.savingRate < 0) deductions.push({ key: "negative_saving", points: 25, message: "Chi tieu dang cao hon thu nhap" });
-  else if (summary.savingRate < 10) deductions.push({ key: "low_saving", points: 12, message: "Ty le tiet kiem duoi 10%" });
-  if (totalBalance < 0) deductions.push({ key: "negative_balance", points: 20, message: "Tong so du vi dang am" });
-  if (negativeWallets > 0) deductions.push({ key: "negative_wallets", points: Math.min(15, negativeWallets * 5), message: `${negativeWallets} vi dang am so du` });
-  if (lowWallets > 0) deductions.push({ key: "low_wallets", points: Math.min(12, lowWallets * 4), message: `${lowWallets} vi duoi nguong an toan` });
-  if (exceededBudgets > 0) deductions.push({ key: "exceeded_budgets", points: Math.min(20, exceededBudgets * 10), message: `${exceededBudgets} ngan sach da vuot` });
-  if (warningBudgets > 0) deductions.push({ key: "warning_budgets", points: Math.min(10, warningBudgets * 4), message: `${warningBudgets} ngan sach gan vuot` });
-  if (overdueDebts > 0) deductions.push({ key: "overdue_debts", points: Math.min(18, overdueDebts * 9), message: `${overdueDebts} khoan no qua han` });
+  if (summary.income <= 0) deductions.push({ key: "no_income", points: 15, message: "Chưa có thu nhập trong khoảng này" });
+  if (summary.savingRate < 0) deductions.push({ key: "negative_saving", points: 25, message: "Chi tiêu đang cao hơn thu nhập" });
+  else if (summary.savingRate < 10) deductions.push({ key: "low_saving", points: 12, message: "Tỉ lệ tiết kiệm dưới 10%" });
+  if (totalBalance < 0) deductions.push({ key: "negative_balance", points: 20, message: "Tổng số dư ví đang âm" });
+  if (negativeWallets > 0) deductions.push({ key: "negative_wallets", points: Math.min(15, negativeWallets * 5), message: `${negativeWallets} ví đang âm số dư` });
+  if (lowWallets > 0) deductions.push({ key: "low_wallets", points: Math.min(12, lowWallets * 4), message: `${lowWallets} ví dưới ngưỡng an toàn` });
+  if (exceededBudgets > 0) deductions.push({ key: "exceeded_budgets", points: Math.min(20, exceededBudgets * 10), message: `${exceededBudgets} ngân sách đã vượt` });
+  if (warningBudgets > 0) deductions.push({ key: "warning_budgets", points: Math.min(10, warningBudgets * 4), message: `${warningBudgets} ngân sách gần vượt` });
+  if (overdueDebts > 0) deductions.push({ key: "overdue_debts", points: Math.min(18, overdueDebts * 9), message: `${overdueDebts} khoản nợ quá hạn` });
 
   const score = Math.max(0, 100 - deductions.reduce((sum, item) => sum + item.points, 0));
   const level = score >= 80 ? "good" : score >= 60 ? "fair" : score >= 40 ? "watch" : "risk";

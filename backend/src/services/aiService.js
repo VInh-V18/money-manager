@@ -518,7 +518,7 @@ export const listChatSessions = async (userId, { page = 1, limit = 20 } = {}) =>
 
 export const getChatSession = async (userId, sessionId) => {
   const session = await AiChatSession.findOne({ where: { id: sessionId, userId } });
-  if (!session) throw new AppError("Phien chat khong ton tai", 404);
+  if (!session) throw new AppError("Phiên chat không tồn tại", 404);
   const messages = await AiChatMessage.findAll({
     where: { sessionId },
     order: [["createdAt", "ASC"]],
@@ -528,7 +528,7 @@ export const getChatSession = async (userId, sessionId) => {
 
 export const deleteChatSession = async (userId, sessionId) => {
   const session = await AiChatSession.findOne({ where: { id: sessionId, userId } });
-  if (!session) throw new AppError("Phien chat khong ton tai", 404);
+  if (!session) throw new AppError("Phiên chat không tồn tại", 404);
   await AiChatMessage.destroy({ where: { sessionId } });
   await session.destroy();
   return { deleted: true };

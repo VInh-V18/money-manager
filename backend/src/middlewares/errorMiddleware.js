@@ -5,7 +5,7 @@ import env from "../config/env.js";
 export const notFoundHandler = (req, res, next) => {
   res.status(404).json({
     success: false,
-    message: `Khong tim thay endpoint ${req.method} ${req.originalUrl}`,
+    message: `Không tìm thấy endpoint ${req.method} ${req.originalUrl}`,
   });
 };
 
@@ -31,17 +31,17 @@ export const errorHandler = (err, req, res, next) => {
   if (err.name === "SequelizeValidationError" || err.name === "SequelizeUniqueConstraintError") {
     return res.status(400).json({
       success: false,
-      message: "Du lieu khong hop le",
+      message: "Dữ liệu không hợp lệ",
       errors: err.errors?.map((e) => ({ field: e.path, message: e.message })),
     });
   }
 
   // loi JWT
   if (err.name === "JsonWebTokenError") {
-    return res.status(401).json({ success: false, message: "Token khong hop le" });
+    return res.status(401).json({ success: false, message: "Token không hợp lệ" });
   }
   if (err.name === "TokenExpiredError") {
-    return res.status(401).json({ success: false, message: "Token het han" });
+    return res.status(401).json({ success: false, message: "Token hết hạn" });
   }
 
   // loi unknown -> 500

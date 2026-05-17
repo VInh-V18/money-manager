@@ -54,10 +54,10 @@ export const generateDueFixedExpenses = async (userId = null) => {
           await createNotification(fe.userId, {
             type: "low_balance",
             severity: "danger",
-            title: "Vi khong du tien cho khoan chi co dinh",
-            message: `Khoan "${fe.name}" (${fe.amount}) den han nhung vi "${
+            title: "Ví không đủ tiền cho khoản chi cố định",
+            message: `Khoản "${fe.name}" (${fe.amount}) đến hạn nhưng ví "${
               wallet?.name || "?"
-            }" khong du tien`,
+            }" không đủ tiền`,
             relatedEntity: { entityType: "fixed_expense", entityId: fe.id },
           });
           warned++;
@@ -82,7 +82,7 @@ export const generateDueFixedExpenses = async (userId = null) => {
               subType: "fixed",
               amount: fe.amount,
               description: fe.name,
-              note: `Tu khoan chi co dinh #${fe.id}`,
+              note: `Từ khoản chi cố định #${fe.id}`,
               transactionDate: fe.nextDueDate,
               fixedExpenseId: fe.id,
             },
@@ -108,8 +108,8 @@ export const generateDueFixedExpenses = async (userId = null) => {
             {
               type: "fixed_expense_generated",
               severity: "info",
-              title: "Da tao giao dich tu chi co dinh",
-              message: `"${fe.name}" da tu dong tru ${fe.amount} tu vi`,
+              title: "Đã tạo giao dịch từ chi cố định",
+              message: `"${fe.name}" đã tự động trừ ${fe.amount} từ ví`,
               relatedEntity: { entityType: "fixed_expense", entityId: fe.id },
             },
             dbTx
@@ -121,8 +121,8 @@ export const generateDueFixedExpenses = async (userId = null) => {
         await createNotification(fe.userId, {
           type: "fixed_expense_due",
           severity: "warning",
-          title: "Khoan chi co dinh den han",
-          message: `"${fe.name}" (${fe.amount}) cho ban xac nhan`,
+          title: "Khoản chi cố định đến hạn",
+          message: `"${fe.name}" (${fe.amount}) chờ bạn xác nhận`,
           relatedEntity: { entityType: "fixed_expense", entityId: fe.id },
         });
         warned++;
@@ -151,8 +151,8 @@ export const generateDueFixedExpenses = async (userId = null) => {
       await createNotification(fe.userId, {
         type: "fixed_expense_due",
         severity: "info",
-        title: "Sap den han khoan chi co dinh",
-        message: `"${fe.name}" (${fe.amount}) se den han trong ${daysUntil} ngay`,
+        title: "Sắp đến hạn khoản chi cố định",
+        message: `"${fe.name}" (${fe.amount}) sẽ đến hạn trong ${daysUntil} ngày`,
         relatedEntity: { entityType: "fixed_expense", entityId: fe.id },
       });
     }

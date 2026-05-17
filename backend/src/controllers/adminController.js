@@ -80,11 +80,11 @@ export const listUsers = asyncHandler(async (req, res) => {
 
 export const updateUserRole = asyncHandler(async (req, res) => {
   const user = await User.findByPk(req.params.id);
-  if (!user) throw notFoundError("Khong tim thay user");
+  if (!user) throw notFoundError("Không tìm thấy user");
   await user.update({ role: req.body.role });
   const safe = user.toJSON();
   delete safe.hashedPassword;
-  return ok(res, { user: safe }, "Da cap nhat role");
+  return ok(res, { user: safe }, "Đã cập nhật role");
 });
 
 export const listFeedback = asyncHandler(async (req, res) => {
@@ -108,9 +108,9 @@ export const listFeedback = asyncHandler(async (req, res) => {
 
 export const updateFeedbackStatus = asyncHandler(async (req, res) => {
   const feedback = await Feedback.findByPk(req.params.id);
-  if (!feedback) throw notFoundError("Khong tim thay feedback");
+  if (!feedback) throw notFoundError("Không tìm thấy feedback");
   await feedback.update({ status: req.body.status });
-  return ok(res, { feedback }, "Da cap nhat feedback");
+  return ok(res, { feedback }, "Đã cập nhật feedback");
 });
 
 export const listSystemLogs = asyncHandler(async (req, res) => {
