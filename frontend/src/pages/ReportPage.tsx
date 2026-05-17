@@ -245,17 +245,17 @@ export default function ReportPage() {
       {importErrors.length > 0 && (
         <Card className="mb-6 border-warning/40">
           <CardHeader>
-            <CardTitle>Loi import CSV</CardTitle>
+            <CardTitle>Lỗi import CSV</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {importErrors.slice(0, 20).map((item) => (
               <div key={`${item.line}-${item.reason}`} className="rounded-lg border px-3 py-2 text-sm">
-                <span className="font-medium">Dong {item.line}:</span>{" "}
+                <span className="font-medium">Dòng {item.line}:</span>{" "}
                 <span className="text-muted-foreground">{item.reason}</span>
               </div>
             ))}
             {importErrors.length > 20 && (
-              <p className="text-xs text-muted-foreground">Con {importErrors.length - 20} loi khac trong file.</p>
+              <p className="text-xs text-muted-foreground">Còn {importErrors.length - 20} lỗi khác trong file.</p>
             )}
           </CardContent>
         </Card>
@@ -346,32 +346,32 @@ export default function ReportPage() {
             {comparison && (
               <Card>
                 <CardHeader>
-                  <CardTitle>So sanh thang nay</CardTitle>
+                  <CardTitle>So sánh tháng này</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border p-3">
-                      <p className="text-sm text-muted-foreground">Thu nhap thang nay</p>
+                      <p className="text-sm text-muted-foreground">Thu nhập tháng này</p>
                       <p className="mt-1 text-xl font-semibold text-income">{formatCurrency(comparison.current.income)}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {comparison.change.income >= 0 ? "+" : ""}{comparison.change.income}% so voi thang truoc
+                        {comparison.change.income >= 0 ? "+" : ""}{comparison.change.income}% so với tháng trước
                       </p>
                     </div>
                     <div className="rounded-lg border p-3">
-                      <p className="text-sm text-muted-foreground">Chi tieu thang nay</p>
+                      <p className="text-sm text-muted-foreground">Chi tiêu tháng này</p>
                       <p className="mt-1 text-xl font-semibold text-expense">{formatCurrency(comparison.current.expense)}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {comparison.change.expense >= 0 ? "+" : ""}{comparison.change.expense}% so voi thang truoc
+                        {comparison.change.expense >= 0 ? "+" : ""}{comparison.change.expense}% so với tháng trước
                       </p>
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg bg-muted p-3 text-sm">
-                      <p className="text-muted-foreground">Thang truoc thu</p>
+                      <p className="text-muted-foreground">Tháng trước thu</p>
                       <p className="font-semibold">{formatCurrency(comparison.previous.income)}</p>
                     </div>
                     <div className="rounded-lg bg-muted p-3 text-sm">
-                      <p className="text-muted-foreground">Thang truoc chi</p>
+                      <p className="text-muted-foreground">Tháng trước chi</p>
                       <p className="font-semibold">{formatCurrency(comparison.previous.expense)}</p>
                     </div>
                   </div>
@@ -382,26 +382,26 @@ export default function ReportPage() {
             {forecast && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Du bao cuoi thang</CardTitle>
+                  <CardTitle>Dự báo cuối tháng</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border p-3">
-                      <p className="text-sm text-muted-foreground">Chi trung binh/ngay</p>
+                      <p className="text-sm text-muted-foreground">Chi trung bình/ngày</p>
                       <p className="mt-1 text-xl font-semibold">{formatCurrency(forecast.avgDailyExpense)}</p>
                     </div>
                     <div className="rounded-lg border p-3">
-                      <p className="text-sm text-muted-foreground">Du bao chi ca thang</p>
+                      <p className="text-sm text-muted-foreground">Dự báo chi cả tháng</p>
                       <p className="mt-1 text-xl font-semibold text-expense">{formatCurrency(forecast.projectedMonthExpense)}</p>
                     </div>
                   </div>
                   <div className="rounded-lg bg-muted p-3 text-sm">
-                    <p className="text-muted-foreground">Du kien con lai cuoi thang</p>
+                    <p className="text-muted-foreground">Dự kiến còn lại cuối tháng</p>
                     <p className={`text-lg font-semibold ${forecast.projectedRemainingByMonthEnd >= 0 ? "text-income" : "text-expense"}`}>
                       {formatCurrency(forecast.projectedRemainingByMonthEnd)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Da qua {forecast.daysPassed} ngay, con {forecast.daysLeft} ngay trong thang.
+                      Đã qua {forecast.daysPassed} ngày, còn {forecast.daysLeft} ngày trong tháng.
                     </p>
                   </div>
                 </CardContent>
