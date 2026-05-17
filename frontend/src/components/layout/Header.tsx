@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Menu, Moon, Sun, LogOut, User as UserIcon, Bell } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
 import { getBackendAssetUrl } from "@/lib/env";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useThemeStore } from "@/stores/useThemeStore";
+import { useNotificationStore } from "@/stores/useNotificationStore";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -24,6 +26,18 @@ export function Header({ onToggleSidebar }: HeaderProps) {
   const signOut = useAuthStore((s) => s.signOut);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggle);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const fetchUnreadCount = useNotificationStore((s) => s.fetchUnreadCount);
+  const listenSocket = useNotificationStore((s) => s.listenSocket);
+
+  useEffect(() => {
+    fetchUnreadCount();
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (!user) return;
+    return listenSocket();
+  }, [user, listenSocket]);
 
   const initials = (user?.displayName || user?.username || "?")
     .split(" ")
@@ -56,8 +70,14 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         size="icon"
         onClick={() => navigate("/notifications")}
         aria-label="Thông báo"
+        className="relative"
       >
         <Bell className="size-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </Button>
 
       <Button

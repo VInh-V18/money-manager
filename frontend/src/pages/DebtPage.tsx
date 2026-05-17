@@ -29,6 +29,8 @@ const schema = z.object({
   amount: z.number().positive(),
   borrowedDate: z.string(),
   dueDate: z.string().optional(),
+  interestRate: z.number().min(0).max(1000).optional(),
+  interestType: z.enum(["none", "simple", "compound"]).default("none"),
   note: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -50,7 +52,7 @@ export default function DebtPage() {
   const [payDate, setPayDate] = useState(toISODate(new Date()));
   const [paying, setPaying] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       type: "owed_by_me",
@@ -59,9 +61,13 @@ export default function DebtPage() {
       amount: 0,
       borrowedDate: toISODate(new Date()),
       dueDate: "",
+      interestRate: undefined,
+      interestType: "none" as const,
       note: "",
     },
   });
+
+  const watchedInterestType = watch("interestType");
 
   const load = async () => {
     setLoading(true);
@@ -88,6 +94,8 @@ export default function DebtPage() {
         amount: Number(d.amount),
         borrowedDate: d.borrowedDate,
         dueDate: d.dueDate || "",
+        interestRate: d.interestRate != null ? Number(d.interestRate) : undefined,
+        interestType: d.interestType || "none",
         note: d.note || "",
       });
     } else {
@@ -98,6 +106,8 @@ export default function DebtPage() {
         amount: 0,
         borrowedDate: toISODate(new Date()),
         dueDate: "",
+        interestRate: undefined,
+        interestType: "none",
         note: "",
       });
     }
@@ -106,7 +116,11 @@ export default function DebtPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      const payload = { ...data, dueDate: data.dueDate || null };
+      const payload = {
+        ...data,
+        dueDate: data.dueDate || null,
+        interestRate: data.interestType === "none" ? null : (data.interestRate ?? null),
+      };
       if (editing) {
         await debtService.update(editing.id, payload);
         toast.success("Đã cập nhật");
@@ -185,8 +199,12 @@ export default function DebtPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {filtered.map((d) => {
-                const remaining = d.remaining ?? Number(d.amount) - Number(d.paidAmount);
-                const progress = (Number(d.paidAmount) / Number(d.amount)) * 100;
+                const hasInterest = d.interestType && d.interestType !== "none" && Number(d.interestRate) > 0;
+                const total = hasInterest ? (d.totalWithInterest ?? Number(d.amount)) : Number(d.amount);
+                const remaining = hasInterest
+                  ? (d.remainingWithInterest ?? Math.max(0, total - Number(d.paidAmount)))
+                  : (d.remaining ?? Number(d.amount) - Number(d.paidAmount));
+                const progress = total > 0 ? (Number(d.paidAmount) / total) * 100 : 0;
                 return (
                   <Card key={d.id}>
                     <CardContent className="p-5">
@@ -202,6 +220,11 @@ export default function DebtPage() {
                             {d.status === "overdue" && (
                               <Badge variant="destructive" className="gap-1">
                                 <AlertCircle className="size-3" /> Quá hạn
+                              </Badge>
+                            )}
+                            {hasInterest && (
+                              <Badge variant="outline" className="text-xs">
+                                Lãi {d.interestType === "compound" ? "kép" : "đơn"} {Number(d.interestRate)}%/năm
                               </Badge>
                             )}
                             {d.dueDate && (
@@ -229,13 +252,20 @@ export default function DebtPage() {
                       <div className="flex items-baseline justify-between mb-2">
                         <span className="text-xl font-bold">{formatCurrency(d.paidAmount)}</span>
                         <span className="text-sm text-muted-foreground">
-                          / {formatCurrency(d.amount)}
+                          / {formatCurrency(total)}
                         </span>
                       </div>
                       <Progress value={progress} indicatorClassName={d.status === "paid" ? "bg-success" : ""} />
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Còn lại: <span className="font-semibold text-foreground">{formatCurrency(remaining)}</span>
-                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-sm text-muted-foreground">
+                          Còn lại: <span className="font-semibold text-foreground">{formatCurrency(remaining)}</span>
+                        </p>
+                        {hasInterest && (d.interest ?? 0) > 0 && (
+                          <p className="text-xs text-warning">
+                            Lãi: +{formatCurrency(d.interest ?? 0)}
+                          </p>
+                        )}
+                      </div>
 
                       {d.status !== "paid" && (
                         <Button
@@ -316,6 +346,39 @@ export default function DebtPage() {
               <div className="space-y-2">
                 <Label>Hạn trả (tuỳ chọn)</Label>
                 <Input type="date" {...register("dueDate")} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Loại lãi</Label>
+                <Controller
+                  control={control}
+                  name="interestType"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Không lãi</SelectItem>
+                        <SelectItem value="simple">Lãi đơn</SelectItem>
+                        <SelectItem value="compound">Lãi kép</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Lãi suất (%/năm)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={1000}
+                  placeholder="0"
+                  {...register("interestRate", { valueAsNumber: true })}
+                  disabled={watchedInterestType === "none"}
+                />
+                {errors.interestRate && <p className="text-xs text-destructive">{errors.interestRate.message}</p>}
               </div>
             </div>
 

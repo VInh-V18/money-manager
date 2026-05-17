@@ -1,3 +1,4 @@
+import http from "http";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -11,6 +12,7 @@ import { logger, morganStream } from "./utils/logger.js";
 import { connectDB } from "./config/database.js";
 import { syncModels } from "./models/index.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware.js";
+import { initSocket } from "./utils/socket.js";
 
 // routes
 import authRoute from "./routes/authRoute.js";
@@ -39,6 +41,7 @@ const logsDir = path.resolve("logs");
 if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
 const app = express();
+const httpServer = http.createServer(app);
 app.set("trust proxy", 1);
 
 const allowedOrigins = new Set([
@@ -127,8 +130,9 @@ const start = async () => {
     alter: env.DB_SYNC_ALTER === "true",
     force: env.DB_SYNC_FORCE === "true",
   });
+  initSocket(httpServer);
   initCronJobs();
-  app.listen(env.PORT, () => {
+  httpServer.listen(env.PORT, () => {
     logger.info(`Server chạy tại http://localhost:${env.PORT}`);
     logger.info(`Health check: http://localhost:${env.PORT}/api/health`);
   });

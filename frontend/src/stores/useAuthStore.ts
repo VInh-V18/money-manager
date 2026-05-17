@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { toast } from "sonner";
 import { authService } from "@/services/authService";
 import { getErrorMessage } from "@/lib/axios";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 import type { User } from "@/types";
 
 interface AuthState {
@@ -53,6 +54,7 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: true });
           const { user, accessToken } = await authService.signIn(identifier, password);
           set({ user, accessToken });
+          connectSocket(accessToken);
           toast.success(`Chào ${user.displayName}`);
           return true;
         } catch (error) {
@@ -69,6 +71,7 @@ export const useAuthStore = create<AuthState>()(
         } catch {
           // ignore
         }
+        disconnectSocket();
         get().clearState();
         toast.success("Đã đăng xuất");
       },
@@ -86,6 +89,8 @@ export const useAuthStore = create<AuthState>()(
         const { accessToken } = get();
         if (accessToken) {
           await get().fetchMe();
+          const { accessToken: token } = get();
+          if (token) connectSocket(token);
         }
         set({ initialized: true });
       },

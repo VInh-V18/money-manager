@@ -1,5 +1,6 @@
 import { Op, fn, col, literal } from "sequelize";
 import env from "../config/env.js";
+import { cache } from "../libs/redis.js";
 import {
   Wallet,
   Category,
@@ -248,6 +249,20 @@ export const getFinancialContext = async (userId) => {
     })),
   };
 };
+
+const CONTEXT_TTL = 300; // 5 phút
+
+export const getFinancialContextCached = async (userId) => {
+  const key = `ai:ctx:${userId}`;
+  const cached = await cache.get(key);
+  if (cached) return cached;
+  const ctx = await getFinancialContext(userId);
+  await cache.set(key, ctx, CONTEXT_TTL);
+  return ctx;
+};
+
+export const invalidateFinancialContext = (userId) =>
+  cache.del(`ai:ctx:${userId}`);
 
 
 const extractGeminiText = (payload) => {
@@ -567,7 +582,7 @@ export const askFinancialAssistant = async (userId, { message, mode = "advisor",
     dbHistory = prevMessages.map((m) => ({ role: m.role, content: m.content }));
   }
 
-  const context = await getFinancialContext(userId);
+  const context = await getFinancialContextCached(userId);
   const prompt = buildSmartPrompt({ context, message, mode, history: dbHistory });
 
   let smartPayload = null;
