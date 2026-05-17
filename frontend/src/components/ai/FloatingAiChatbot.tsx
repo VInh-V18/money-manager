@@ -3,7 +3,7 @@ import {
   Bot,
   Brain,
   ChartNoAxesCombined,
-  Maximize2,
+  MessageCircle,
   PiggyBank,
   Send,
   ShieldAlert,
@@ -266,9 +266,9 @@ export function FloatingAiChatbot() {
   }, []);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
+    <div className="fixed bottom-20 right-4 z-50 lg:bottom-6 lg:right-6">
       {open ? (
-        <section className="flex h-[min(700px,calc(100dvh-2rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border bg-background shadow-2xl sm:w-[440px]">
+        <section className="flex h-[min(700px,calc(100dvh-9rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border bg-background shadow-2xl sm:w-[440px] lg:h-[min(700px,calc(100dvh-4rem))]">
           <header className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -367,16 +367,14 @@ export function FloatingAiChatbot() {
           </div>
         </section>
       ) : (
-        <Button
-          size="lg"
-          className="h-14 rounded-full px-4 shadow-xl"
+        <button
+          type="button"
           onClick={() => setOpen(true)}
-          aria-label="Mở chatbot AI"
+          aria-label="Mở AI tài chính"
+          className="relative flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-primary/20 transition hover:scale-105 active:scale-95"
         >
-          <Bot className="size-5" />
-          <span className="hidden sm:inline">AI tài chính</span>
-          <Maximize2 className="size-4 opacity-80" />
-        </Button>
+          <MessageCircle className="size-6" />
+        </button>
       )}
     </div>
   );
