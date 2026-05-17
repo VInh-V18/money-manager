@@ -97,18 +97,3 @@ GEMINI_MODEL=gemini-2.5-flash
 GEMINI_FALLBACK_MODELS=gemini-2.5-flash-lite,gemini-2.0-flash
 ```
 
----
-
-## Seed dữ liệu demo
-
-```bash
-cd backend
-npm run seed
-```
-
-Tài khoản demo mặc định:
-
-```
-Email:    demo@money.local
-Password: Demo@1234
-```

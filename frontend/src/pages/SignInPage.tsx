@@ -25,7 +25,7 @@ export default function SignInPage() {
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { identifier: "demo@money.local", password: "Demo@1234" },
+    defaultValues: { identifier: "", password: "" },
   });
 
   if (accessToken) return <Navigate to="/" replace />;
@@ -53,7 +53,7 @@ export default function SignInPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="identifier">Email hoặc Username</Label>
-              <Input id="identifier" {...register("identifier")} placeholder="demo@money.local" />
+              <Input id="identifier" {...register("identifier")} placeholder="Email hoặc username" />
               <p className="min-h-4 text-xs text-destructive" aria-live="polite">
                 {errors.identifier?.message}
               </p>
