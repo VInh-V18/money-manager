@@ -9,13 +9,7 @@ export const notFoundHandler = (req, res) => {
 };
 
 export const errorHandler = (err, req, res, _next) => {
-  // Always log the full error server-side for debugging
-  logger.error(`[ERROR] ${req.method} ${req.originalUrl} — ${err.message}`, {
-    stack: err.stack,
-    userId: req.user?.id,
-  });
-
-  // Known application errors — safe to expose message to client
+  // Known application errors — safe to expose message, no server log needed
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,
@@ -33,7 +27,7 @@ export const errorHandler = (err, req, res, _next) => {
     });
   }
 
-  // JWT errors
+  // JWT errors — token expiry is normal (client refreshes automatically), not an error
   if (err.name === "JsonWebTokenError") {
     return res.status(401).json({ success: false, message: "Token không hợp lệ" });
   }
@@ -46,7 +40,12 @@ export const errorHandler = (err, req, res, _next) => {
     return res.status(400).json({ success: false, message: "Yêu cầu bị chặn bởi CORS" });
   }
 
-  // Unknown errors — never expose internals to client
+  // Unexpected errors — log full details server-side, never expose internals to client
+  logger.error(`[ERROR] ${req.method} ${req.originalUrl} — ${err.message}`, {
+    stack: err.stack,
+    userId: req.user?.id,
+  });
+
   return res.status(500).json({
     success: false,
     message: "Lỗi server, vui lòng thử lại sau",
