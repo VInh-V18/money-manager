@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { Navigate, Outlet } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { Skeleton } from "@/components/ui/avatar";
 
 export function ProtectedRoute() {
   const { accessToken, user, initialized, initAuth } = useAuthStore();
+  const location = useLocation();
 
   useEffect(() => {
     if (!initialized) initAuth();
@@ -21,14 +22,9 @@ export function ProtectedRoute() {
     );
   }
 
-  // chua co access token -> chua dang nhap
-  if (!accessToken) {
-    return <Navigate to="/signin" replace />;
-  }
-
-  // co token nhung fetchMe loi -> coi nhu chua login
-  if (initialized && !user) {
-    return <Navigate to="/signin" replace />;
+  if (!accessToken || (initialized && !user)) {
+    // Lưu trang hiện tại để sau login quay lại
+    return <Navigate to="/signin" state={{ from: location.pathname }} replace />;
   }
 
   return <Outlet />;

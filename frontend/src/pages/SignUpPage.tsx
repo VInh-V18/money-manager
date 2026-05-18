@@ -2,11 +2,12 @@ import { Link, useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { TrendingUp } from "lucide-react";
+import { Chrome, Github, Globe2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { authService, type OAuthProvider } from "@/services/authService";
 
 const schema = z.object({
   username: z.string().min(3, "Tối thiểu 3 ký tự").regex(/^[a-zA-Z0-9_]+$/, "Chỉ gồm chữ, số, gạch dưới"),
@@ -34,6 +35,10 @@ export default function SignUpPage() {
   const onSubmit = async (data: FormData) => {
     const ok = await signUp(data);
     if (ok) navigate("/signin");
+  };
+
+  const handleOAuthLogin = (provider: OAuthProvider) => {
+    window.location.href = authService.oauthUrl(provider);
   };
 
   return (
@@ -87,6 +92,27 @@ export default function SignUpPage() {
               Đăng ký
             </Button>
           </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">Hoặc tiếp tục bằng</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button type="button" variant="outline" className="w-full" onClick={() => handleOAuthLogin("google")}>
+              <Chrome className="mr-2 size-4" />
+              Google
+            </Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => handleOAuthLogin("facebook")}>
+              <Globe2 className="mr-2 size-4" />
+              Facebook
+            </Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => handleOAuthLogin("github")}>
+              <Github className="mr-2 size-4" />
+              GitHub
+            </Button>
+          </div>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Đã có tài khoản?{" "}

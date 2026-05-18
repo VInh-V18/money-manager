@@ -321,7 +321,7 @@ export interface Notification {
   type: NotificationType;
   title: string;
   message: string;
-  severity: "info" | "warning" | "danger";
+  severity: "info" | "warning" | "danger" | "success";
   relatedEntity: { entityType: string; entityId: number } | null;
   isRead: boolean;
   readAt: string | null;

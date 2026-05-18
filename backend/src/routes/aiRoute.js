@@ -25,6 +25,8 @@ router.get("/spending-total", ctrl.spendingTotal);
 router.get("/monthly-analysis", aiLimiter, ctrl.monthlyAnalysis);
 router.get("/savings", aiLimiter, ctrl.savings);
 router.get("/report", aiLimiter, ctrl.report);
+router.get("/weekly-digest", aiLimiter, ctrl.weekly);
+router.get("/anomaly", aiLimiter, ctrl.anomaly);
 
 // ===== Chat Sessions =====
 router.get("/sessions", ctrl.listSessions);

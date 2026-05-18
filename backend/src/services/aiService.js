@@ -280,7 +280,9 @@ const normalizeText = (text = "") =>
   String(text)
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "d");
 
 const parseMoneyFromText = (text) => {
   const normalized = normalizeText(text).replace(/,/g, ".").replace(/\s+/g, " ");
@@ -316,20 +318,69 @@ const inferType = (text) => {
   return incomeWords.some((word) => normalized.includes(word)) ? "income" : "expense";
 };
 
+// Từ khóa dùng \b hoặc cụm từ đủ dài để tránh khớp nhầm substring
+const KEYWORD_DICTIONARY = [
+  {
+    keys: ["an sang", "an trua", "an toi", "an vat", "com", "bun", "pho", "mi", "banh", "cafe", "ca phe", "tra sua", "nuoc ngot", "tra chanh", "beer", "bia", "nha hang", "quan an", "fastfood", "pizza", "burger", "sushi"],
+    names: ["an uong", "an", "uong", "food", "nha hang"],
+  },
+  {
+    keys: ["xang", "grab", "taxi", "xe om", "gojek", "be", "bus", "xe buyt", "tram xe", "ve tau", "ve may bay", "ve xe", "di chuyen", "di lai", "gui xe", "phí cau", "phi duong"],
+    names: ["di lai", "xang", "giao thong", "transport", "xe"],
+  },
+  {
+    keys: ["tien dien", "hoa don dien", "tien nuoc", "hoa don nuoc", "internet", "wifi", "mang", "tien nha", "thue nha", "dien nuoc"],
+    names: ["hoa don", "tien ich", "bill", "nha o", "nha"],
+  },
+  {
+    keys: ["luong", "salary", "thu nhap", "tien luong", "nhan luong"],
+    names: ["luong", "salary", "thu nhap"],
+  },
+  {
+    keys: ["thuong", "bonus", "phu cap", "troj cap"],
+    names: ["thuong", "bonus"],
+  },
+  {
+    keys: ["mua sam", "mua hang", "shopee", "lazada", "tiki", "quan ao", "giay dep", "do dung", "nuoc hoa", "my pham", "trang suc"],
+    names: ["mua sam", "mua", "shopping"],
+  },
+  {
+    keys: ["hoc phi", "hoc", "sach", "khoa hoc", "truong", "lop hoc", "truong hoc"],
+    names: ["hoc tap", "hoc", "giao duc", "education"],
+  },
+  {
+    keys: ["thuoc", "benh vien", "kham benh", "bac si", "nha si", "gym", "the duc", "vitamin", "suc khoe"],
+    names: ["suc khoe", "y te", "health"],
+  },
+  {
+    keys: ["phim", "xem phim", "game", "giai tri", "concert", "nhac", "du lich", "vacation", "resort", "khach san"],
+    names: ["giai tri", "du lich", "entertainment"],
+  },
+  {
+    keys: ["tien mat", "rut tien", "chuyen tien", "nap tien"],
+    names: [],
+  },
+  {
+    keys: ["ban hang", "ban", "doanh thu", "thu tu ban"],
+    names: ["ban hang", "doanh thu"],
+  },
+  {
+    keys: ["freelance", "lam them", "gia su", "lam part"],
+    names: ["lam them", "freelance"],
+  },
+];
+
 const classifyByKeywords = (text, categories) => {
   const normalized = normalizeText(text);
-  const dictionary = [
-    { keys: ["an", "com", "bun", "pho", "cafe", "tra sua", "nha hang"], names: ["an", "food", "uong"] },
-    { keys: ["xang", "grab", "taxi", "xe", "bus"], names: ["di lai", "xang", "xe", "transport"] },
-    { keys: ["dien", "nuoc", "mang", "internet", "wifi", "nha"], names: ["hoa don", "nha", "bill"] },
-    { keys: ["luong", "salary"], names: ["luong", "salary"] },
-    { keys: ["thuong", "bonus"], names: ["thuong", "bonus"] },
-    { keys: ["mua", "shopee", "quan ao", "do"], names: ["mua", "shopping"] },
-    { keys: ["hoc", "khoa hoc", "sach"], names: ["hoc", "giao duc", "education"] },
-  ];
 
-  for (const group of dictionary) {
-    if (!group.keys.some((key) => normalized.includes(key))) continue;
+  for (const group of KEYWORD_DICTIONARY) {
+    const matched = group.keys.some((key) => {
+      // Dùng word-boundary giả: khớp từ đầu, cuối hoặc sau khoảng trắng
+      const pattern = new RegExp(`(^|\\s)${key.replace(/\s+/g, "\\s+")}($|\\s|\\d)`, "i");
+      return pattern.test(normalized) || normalized.includes(key);
+    });
+    if (!matched) continue;
+
     const found = categories.find((category) => {
       const name = normalizeText(category.name);
       return group.names.some((key) => name.includes(key));
@@ -337,11 +388,43 @@ const classifyByKeywords = (text, categories) => {
     if (found) return found;
   }
 
+  // Khớp trực tiếp tên danh mục trong text
   return (
     categories.find((category) => normalized.includes(normalizeText(category.name))) ||
-    categories[0] ||
     null
   );
+};
+
+const classifyWithGemini = async (text, type, categories) => {
+  if (!env.GEMINI_API_KEY || !categories.length) return null;
+  const catList = categories.map((c) => `${c.id}:${c.name}`).join(", ");
+  const prompt = `Phân loại giao dịch tài chính tiếng Việt sau vào đúng 1 danh mục.
+Giao dịch: "${text}"
+Loại: ${type === "income" ? "Thu nhập" : "Chi tiêu"}
+Danh mục (id:tên): ${catList}
+Chỉ trả về JSON: {"categoryId": <số id>, "confidence": <0.0-1.0>, "reason": "<lý do ngắn>"}`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL || "gemini-2.0-flash"}:generateContent`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 128 },
+      }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    const raw = extractGeminiText(payload);
+    const jsonMatch = raw?.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]);
+    const cat = categories.find((c) => c.id === Number(parsed.categoryId));
+    if (!cat) return null;
+    return { category: cat, confidence: Number(parsed.confidence) || 0.85, reason: parsed.reason || "" };
+  } catch {
+    return null;
+  }
 };
 
 export const classifyTransactionText = async (userId, text, type = inferType(text)) => {
@@ -351,54 +434,135 @@ export const classifyTransactionText = async (userId, text, type = inferType(tex
     order: [["sortOrder", "ASC"], ["name", "ASC"]],
     raw: true,
   });
-  const category = classifyByKeywords(text, categories);
+
+  const keywordCategory = classifyByKeywords(text, categories);
+
+  if (keywordCategory) {
+    return {
+      type,
+      category: keywordCategory,
+      confidence: 0.82,
+      reason: `Phân loại theo từ khóa: ${keywordCategory.name}`,
+    };
+  }
+
+  // Fallback: dùng Gemini khi keyword không tìm được
+  const geminiResult = await classifyWithGemini(text, type, categories);
+  if (geminiResult) {
+    return {
+      type,
+      category: geminiResult.category,
+      confidence: geminiResult.confidence,
+      reason: `Gemini AI: ${geminiResult.reason}`,
+    };
+  }
+
   return {
     type,
-    category,
-    confidence: category ? 0.78 : 0.2,
-    reason: category
-      ? `Phân loại theo từ khóa và tên danh mục gần nhất: ${category.name}`
-      : "Chưa có danh mục phù hợp để phân loại.",
+    category: categories[0] || null,
+    confidence: 0.2,
+    reason: "Chưa phân loại được chính xác, chọn danh mục đầu tiên.",
   };
 };
 
-export const createTransactionFromNaturalText = async (userId, text) => {
-  const amount = parseMoneyFromText(text);
-  if (!amount) throw new AppError("Chưa nhận diện được số tiền trong câu nhập giao dịch", 400);
+const parseNaturalTextWithGemini = async (text, wallets, categories, todayStr) => {
+  if (!env.GEMINI_API_KEY) return null;
+  const walletList = wallets.map((w) => `${w.id}:${w.name}`).join(", ");
+  const catList = categories.map((c) => `${c.id}:${c.name}(${c.type})`).join(", ");
+  const prompt = `Phân tích câu nhập giao dịch tài chính tiếng Việt và trả về JSON.
+Câu: "${text}"
+Hôm nay: ${todayStr}
+Ví có sẵn (id:tên): ${walletList || "chưa có ví"}
+Danh mục (id:tên(loại)): ${catList}
 
-  const type = inferType(text);
-  const transactionDate = resolveNaturalDate(text);
-  const [wallets, classification] = await Promise.all([
+Trả về JSON (chỉ JSON, không giải thích):
+{
+  "type": "expense" hoặc "income",
+  "amount": số tiền nguyên VND (0 nếu không rõ),
+  "description": mô tả ngắn (tối đa 60 ký tự),
+  "transactionDate": "YYYY-MM-DD",
+  "walletId": id ví phù hợp hoặc null,
+  "categoryId": id danh mục phù hợp hoặc null,
+  "confidence": 0.0-1.0
+}`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL || "gemini-2.0-flash"}:generateContent`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
+      }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    const raw = extractGeminiText(payload);
+    const jsonMatch = raw?.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+};
+
+export const createTransactionFromNaturalText = async (userId, text) => {
+  const todayStr = formatDate(today());
+  const [wallets, allCategories] = await Promise.all([
     Wallet.findAll({
       where: { userId, isActive: true },
       attributes: ["id", "name", "type", "balance"],
       order: [["id", "ASC"]],
       raw: true,
     }),
-    classifyTransactionText(userId, text, type),
+    Category.findAll({
+      where: { userId },
+      attributes: ["id", "name", "type"],
+      order: [["sortOrder", "ASC"]],
+      raw: true,
+    }),
   ]);
 
-  const normalized = normalizeText(text);
+  if (!wallets.length) throw new AppError("Bạn cần tạo ít nhất một ví trước khi nhập giao dịch", 400);
+
+  // Ưu tiên Gemini parse, fallback regex
+  let geminiParsed = null;
+  if (env.GEMINI_API_KEY) {
+    geminiParsed = await parseNaturalTextWithGemini(text, wallets, allCategories, todayStr);
+  }
+
+  const type = geminiParsed?.type || inferType(text);
+  const amount = (geminiParsed?.amount && geminiParsed.amount > 0)
+    ? Math.round(geminiParsed.amount)
+    : parseMoneyFromText(text);
+
+  if (!amount) throw new AppError("Chưa nhận diện được số tiền trong câu nhập giao dịch", 400);
+
+  const transactionDate = geminiParsed?.transactionDate || resolveNaturalDate(text);
+  const description = geminiParsed?.description || text;
+  const confidence = geminiParsed?.confidence || 0.6;
+
   const wallet =
-    wallets.find((item) => normalized.includes(normalizeText(item.name))) ||
+    (geminiParsed?.walletId && wallets.find((w) => w.id === Number(geminiParsed.walletId))) ||
+    wallets.find((w) => normalizeText(text).includes(normalizeText(w.name))) ||
     wallets[0];
-  if (!wallet) throw new AppError("Bạn cần tạo ít nhất một ví trước khi nhập giao dịch", 400);
+
+  const category =
+    (geminiParsed?.categoryId && allCategories.find((c) => c.id === Number(geminiParsed.categoryId))) ||
+    (await classifyTransactionText(userId, text, type)).category;
 
   const tx = await sequelize.transaction((dbTx) =>
     createTransactionWithBalance(
       userId,
       {
         walletId: wallet.id,
-        categoryId: classification.category?.id || null,
+        categoryId: category?.id || null,
         type,
         amount,
-        description: text,
+        description,
         note: "Tạo từ chatbot AI",
         transactionDate,
-        metadata: {
-          source: "ai_chatbot",
-          classificationConfidence: classification.confidence,
-        },
+        metadata: { source: "ai_chatbot", classificationConfidence: confidence },
       },
       dbTx,
       { allowNegative: true }
@@ -414,14 +578,7 @@ export const createTransactionFromNaturalText = async (userId, text) => {
 
   return {
     transaction: full,
-    parsed: {
-      amount,
-      type,
-      transactionDate,
-      wallet,
-      category: classification.category,
-      confidence: classification.confidence,
-    },
+    parsed: { amount, type, transactionDate, wallet, category, confidence },
   };
 };
 
@@ -467,6 +624,20 @@ export const createAiReport = async (userId) =>
     mode: "advisor",
     message:
       "Tạo báo cáo tài chính AI cho tháng này gồm: tóm tắt điều hành, thu/chi, danh mục chi chính, ngân sách, nợ, mục tiêu, rủi ro và kế hoạch hành động.",
+  });
+
+export const weeklyDigest = async (userId) =>
+  askFinancialAssistant(userId, {
+    mode: "advisor",
+    message:
+      "Tóm tắt 7 ngày qua: tổng chi tiêu, top 3 danh mục tốn nhiều nhất, giao dịch đáng chú ý, so sánh với tuần trước và 3 việc cần làm tuần tới.",
+  });
+
+export const detectAnomalies = async (userId) =>
+  askFinancialAssistant(userId, {
+    mode: "risk",
+    message:
+      "Phát hiện chi tiêu bất thường trong 30 ngày qua: tìm giao dịch cao bất thường so với trung bình, danh mục đột ngột tăng, chi tiêu lặp lại không cần thiết và cảnh báo tài chính cần xử lý ngay.",
   });
 
 const smartModePrompts = {

@@ -16,20 +16,33 @@ services:
       - key: DB_SYNC_FORCE
         value: "false"
       # --- Điền trong Render dashboard ---
-      # DB_HOST        = <Aiven host>
-      # DB_PORT        = <Aiven port>
-      # DB_NAME        = defaultdb
-      # DB_USER        = avnadmin
-      # DB_PASSWORD    = <Aiven password>
+      # DB_HOST            = <Aiven / PlanetScale host>
+      # DB_PORT            = 3306
+      # DB_NAME            = defaultdb
+      # DB_USER            = avnadmin
+      # DB_PASSWORD        = <password>
+      #
       # JWT_ACCESS_SECRET  = <random 64 chars>
       # JWT_REFRESH_SECRET = <random 64 chars>
-      # MAIL_HOST      = smtp.gmail.com
-      # MAIL_PORT      = 587
-      # MAIL_USER      = your@gmail.com
-      # MAIL_PASS      = <gmail app password>
-      # GEMINI_API_KEY = <gemini key>
-      # CLIENT_URL     = https://your-app.vercel.app
-      # CLIENT_URLS    = https://your-app.vercel.app
-      # API_PUBLIC_URL = https://money-manager-api.onrender.com
+      # JWT_2FA_SECRET     = <random 64 chars>
+      #
+      # MAIL_HOST          = smtp.gmail.com
+      # MAIL_PORT          = 587
+      # MAIL_USER          = your@gmail.com
+      # MAIL_PASS          = <gmail app password>
+      #
+      # GEMINI_API_KEY     = <gemini key>
+      #
+      # REDIS_URL          = redis://<host>:<port>   (optional — falls back to in-memory)
+      #
+      # CLIENT_URL         = https://your-app.vercel.app
+      # CLIENT_URLS        = https://your-app.vercel.app
+      # API_PUBLIC_URL     = https://money-manager-api.onrender.com
+      #
+      # --- OAuth providers (chỉ điền provider nào bạn dùng) ---
       # GOOGLE_CLIENT_ID     = ...
       # GOOGLE_CLIENT_SECRET = ...
+      # FACEBOOK_CLIENT_ID   = ...
+      # FACEBOOK_CLIENT_SECRET = ...
+      # GITHUB_CLIENT_ID     = ...
+      # GITHUB_CLIENT_SECRET = ...

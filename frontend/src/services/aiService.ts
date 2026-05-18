@@ -129,4 +129,6 @@ export const aiService = {
     form.append("receipt", file);
     return api.post("/transactions/receipt/ocr", form).then((r) => r.data.data as AiReceiptOcrResponse);
   },
+  weeklyDigest: () => api.get("/ai/weekly-digest").then((r) => r.data.data as AiChatResponse),
+  anomaly: () => api.get("/ai/anomaly").then((r) => r.data.data as AiChatResponse),
 };

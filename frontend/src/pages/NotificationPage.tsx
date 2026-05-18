@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Check, Trash2, AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { Bell, Check, Trash2, AlertCircle, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,15 @@ export default function NotificationPage() {
   const severityIcon = (s: Notification["severity"]) => {
     if (s === "danger") return <AlertCircle className="size-5 text-destructive" />;
     if (s === "warning") return <AlertTriangle className="size-5 text-warning" />;
+    if (s === "success") return <CheckCircle2 className="size-5 text-green-500" />;
     return <Info className="size-5 text-primary" />;
+  };
+
+  const severityBg = (s: Notification["severity"]) => {
+    if (s === "danger") return "border-l-2 border-l-destructive";
+    if (s === "warning") return "border-l-2 border-l-warning";
+    if (s === "success") return "border-l-2 border-l-green-500";
+    return "";
   };
 
   return (
@@ -119,7 +127,8 @@ export default function NotificationPage() {
                       key={n.id}
                       className={cn(
                         "flex gap-3 p-4 transition",
-                        !n.isRead && "bg-primary/5"
+                        !n.isRead && "bg-primary/5",
+                        !n.isRead && severityBg(n.severity)
                       )}
                     >
                       <div className="shrink-0 mt-0.5">{severityIcon(n.severity)}</div>

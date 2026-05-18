@@ -15,6 +15,7 @@ import {
   Shield,
   Settings,
   TrendingUp,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { to: "/debts", icon: Users, label: "Nợ" },
   { to: "/templates", icon: Zap, label: "Mẫu chi nhanh" },
   { to: "/reports", icon: BarChart3, label: "Báo cáo" },
+  { to: "/ai", icon: Bot, label: "AI Tài chính" },
   { to: "/notifications", icon: Bell, label: "Thông báo" },
   { to: "/feedback", icon: MessageSquarePlus, label: "Góp ý" },
 ];

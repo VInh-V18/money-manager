@@ -179,8 +179,9 @@ export default function DashboardPage() {
             {dailyStats.length === 0 ? (
               <EmptyState title="Chưa có dữ liệu" />
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={dailyStats}>
+              <div className="mx-auto h-[260px] w-full min-w-0 overflow-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dailyStats} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="incomeG" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.5} />
@@ -228,8 +229,9 @@ export default function DashboardPage() {
                     fill="url(#expenseG)"
                     strokeWidth={2}
                   />
-                </AreaChart>
-              </ResponsiveContainer>
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -242,16 +244,17 @@ export default function DashboardPage() {
             {expenseCats.length === 0 ? (
               <EmptyState title="Chưa có chi tiêu" />
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
+              <div className="mx-auto h-[260px] w-full max-w-[360px] min-w-0 overflow-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                   <Pie
                     data={expenseCats}
                     dataKey="total"
                     nameKey={(d) => d.category?.name || "Khác"}
                     cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={85}
+                    cy="46%"
+                    innerRadius="38%"
+                    outerRadius="64%"
                     paddingAngle={2}
                   >
                     {expenseCats.map((c, i) => (
@@ -261,11 +264,14 @@ export default function DashboardPage() {
                   <Tooltip formatter={(v: number) => formatCurrency(v)} />
                   <Legend
                     iconSize={10}
-                    wrapperStyle={{ fontSize: 12 }}
+                    align="center"
+                    verticalAlign="bottom"
+                    wrapperStyle={{ fontSize: 12, left: 0, right: 0 }}
                     formatter={(v) => <span className="text-foreground">{v}</span>}
                   />
-                </PieChart>
-              </ResponsiveContainer>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>

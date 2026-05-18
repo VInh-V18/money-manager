@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { MobileBottomNav } from "./MobileBottomNav";
@@ -7,6 +7,7 @@ import { FloatingAiChatbot } from "@/components/ai/FloatingAiChatbot";
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { pathname } = useLocation();
 
   return (
     <div className="min-h-screen bg-background">
@@ -19,7 +20,7 @@ export function AppLayout() {
         </main>
       </div>
       <MobileBottomNav />
-      <FloatingAiChatbot />
+      {pathname !== "/ai" && <FloatingAiChatbot />}
     </div>
   );
 }

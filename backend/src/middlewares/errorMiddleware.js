@@ -1,24 +1,21 @@
 import { AppError } from "../utils/errors.js";
-import env from "../config/env.js";
+import { logger } from "../utils/logger.js";
 
-// 404 - khong tim thay route
-export const notFoundHandler = (req, res, next) => {
+export const notFoundHandler = (req, res) => {
   res.status(404).json({
     success: false,
     message: `Không tìm thấy endpoint ${req.method} ${req.originalUrl}`,
   });
 };
 
-// xu ly loi tap trung
-export const errorHandler = (err, req, res, next) => {
-  // log loi server
-  if (env.NODE_ENV === "development") {
-    console.error("[ERROR]", err);
-  } else {
-    console.error("[ERROR]", err.message);
-  }
+export const errorHandler = (err, req, res, _next) => {
+  // Always log the full error server-side for debugging
+  logger.error(`[ERROR] ${req.method} ${req.originalUrl} — ${err.message}`, {
+    stack: err.stack,
+    userId: req.user?.id,
+  });
 
-  // loi do minh tu nem
+  // Known application errors — safe to expose message to client
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,
@@ -27,7 +24,7 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // loi validate cua sequelize
+  // Sequelize validation/unique constraint
   if (err.name === "SequelizeValidationError" || err.name === "SequelizeUniqueConstraintError") {
     return res.status(400).json({
       success: false,
@@ -36,7 +33,7 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // loi JWT
+  // JWT errors
   if (err.name === "JsonWebTokenError") {
     return res.status(401).json({ success: false, message: "Token không hợp lệ" });
   }
@@ -44,11 +41,14 @@ export const errorHandler = (err, req, res, next) => {
     return res.status(401).json({ success: false, message: "Token hết hạn" });
   }
 
-  // loi unknown -> 500
+  // CORS blocked — 400 is more appropriate than 500
+  if (err.message?.startsWith("CORS blocked")) {
+    return res.status(400).json({ success: false, message: "Yêu cầu bị chặn bởi CORS" });
+  }
+
+  // Unknown errors — never expose internals to client
   return res.status(500).json({
     success: false,
-    message:
-      env.NODE_ENV === "development" ? err.message : "Lỗi server, vui lòng thử lại",
-    ...(env.NODE_ENV === "development" ? { stack: err.stack } : {}),
+    message: "Lỗi server, vui lòng thử lại sau",
   });
 };

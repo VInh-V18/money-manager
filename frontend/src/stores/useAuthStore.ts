@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { toast } from "sonner";
 import { authService } from "@/services/authService";
 import { getErrorMessage } from "@/lib/axios";
-import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 import type { User } from "@/types";
 
 interface AuthState {
@@ -31,7 +31,14 @@ export const useAuthStore = create<AuthState>()(
       loading: false,
       initialized: false,
 
-      setAccessToken: (accessToken) => set({ accessToken }),
+      setAccessToken: (accessToken) => {
+        set({ accessToken });
+        // Keep socket auth in sync so reconnects use the latest token
+        if (accessToken) {
+          const socket = getSocket();
+          if (socket) socket.auth = { token: accessToken };
+        }
+      },
       setUser: (user) => set({ user }),
       clearState: () => set({ accessToken: null, user: null }),
 
@@ -88,10 +95,20 @@ export const useAuthStore = create<AuthState>()(
       initAuth: async () => {
         const { accessToken } = get();
         if (accessToken) {
+          // fetchMe sẽ tự retry qua interceptor nếu token hết hạn
           await get().fetchMe();
-          const { accessToken: token } = get();
-          if (token) connectSocket(token);
+        } else {
+          // Không có accessToken trong storage nhưng refreshToken cookie có thể còn hợp lệ
+          try {
+            const { accessToken: newToken } = await authService.refresh();
+            set({ accessToken: newToken });
+            await get().fetchMe();
+          } catch {
+            // Không còn session hợp lệ nào — bỏ qua
+          }
         }
+        const { accessToken: token } = get();
+        if (token) connectSocket(token);
         set({ initialized: true });
       },
     }),

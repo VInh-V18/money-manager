@@ -18,12 +18,18 @@ export const verifyAccessToken = (token) =>
 export const verifyRefreshToken = (token) =>
   jwt.verify(token, env.JWT_REFRESH_SECRET);
 
-// Token ngan han dung cho buoc challenge 2FA (5 phut)
+/**
+ * 2FA challenge token — signed with JWT_2FA_SECRET (separate from JWT_ACCESS_SECRET).
+ *
+ * Using a separate secret prevents token-confusion: a 2FA challenge token verified
+ * against JWT_ACCESS_SECRET would fail, so it cannot be used as an access token
+ * in the Authorization header even if intercepted.
+ */
 export const sign2FAChallengeToken = (userId) =>
-  jwt.sign({ id: userId, scope: "2fa_challenge" }, env.JWT_ACCESS_SECRET, { expiresIn: "5m" });
+  jwt.sign({ id: userId, scope: "2fa_challenge" }, env.JWT_2FA_SECRET, { expiresIn: "5m" });
 
 export const verify2FAChallengeToken = (token) => {
-  const payload = jwt.verify(token, env.JWT_ACCESS_SECRET);
-  if (payload.scope !== "2fa_challenge") throw new Error("Invalid 2FA token");
+  const payload = jwt.verify(token, env.JWT_2FA_SECRET);
+  if (payload.scope !== "2fa_challenge") throw new Error("Invalid 2FA token scope");
   return payload;
 };

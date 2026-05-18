@@ -9,6 +9,8 @@ import {
   getFinancialContext,
   getSpendingTotal,
   suggestSavings,
+  weeklyDigest,
+  detectAnomalies,
   listChatSessions,
   getChatSession,
   deleteChatSession,
@@ -68,5 +70,15 @@ export const savings = asyncHandler(async (req, res) => {
 
 export const report = asyncHandler(async (req, res) => {
   const data = await createAiReport(req.user.id);
+  return ok(res, data);
+});
+
+export const weekly = asyncHandler(async (req, res) => {
+  const data = await weeklyDigest(req.user.id);
+  return ok(res, data);
+});
+
+export const anomaly = asyncHandler(async (req, res) => {
+  const data = await detectAnomalies(req.user.id);
   return ok(res, data);
 });
