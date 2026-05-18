@@ -16,6 +16,7 @@ export const getTransporter = () => {
     port: env.MAIL_PORT,
     secure: env.MAIL_PORT === 465,
     auth: { user: env.MAIL_USER, pass: env.MAIL_PASS },
+    family: 4, // force IPv4, Render does not support IPv6 outbound
   });
 
   return transporter;

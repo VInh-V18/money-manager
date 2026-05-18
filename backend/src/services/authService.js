@@ -549,7 +549,8 @@ const exchangeOAuthCode = async ({ provider, code, redirectUri }) => {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.access_token) {
-    throw unauthorizedError(data.error_description || "Không lấy được OAuth access token");
+    const reason = data.error_description || data.error_message || (data.error?.message) || data.error || "Không lấy được OAuth access token";
+    throw unauthorizedError(`[${provider}] ${reason} (redirect_uri: ${redirectUri})`);
   }
   return data.access_token;
 };
