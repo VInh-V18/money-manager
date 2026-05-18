@@ -1,5 +1,6 @@
 import http from "http";
 import express from "express";
+import compression from "compression";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -52,6 +53,7 @@ const writeLimiter = rateLimit({
 export const createApp = () => {
   const app = express();
   app.set("trust proxy", 1);
+  app.use(compression());
 
   const allowedOrigins = new Set([
     ...env.CLIENT_URLS,

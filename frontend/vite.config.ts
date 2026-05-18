@@ -58,4 +58,34 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core — cached lâu dài, ít thay đổi
+          "vendor-react": ["react", "react-dom", "react-router"],
+          // Biểu đồ nặng — chỉ load khi vào trang Reports
+          "vendor-charts": ["recharts"],
+          // Markdown renderer — chỉ dùng ở AI page
+          "vendor-markdown": ["react-markdown"],
+          // Radix UI primitives
+          "vendor-radix": [
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-label",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-select",
+            "@radix-ui/react-separator",
+            "@radix-ui/react-slot",
+            "@radix-ui/react-tabs",
+          ],
+          // Utilities nhỏ — bundle cùng nhau
+          "vendor-utils": ["axios", "zustand", "zod", "date-fns", "sonner", "clsx", "tailwind-merge", "class-variance-authority"],
+        },
+      },
+    },
+    // Cảnh báo nếu chunk > 400KB sau khi split
+    chunkSizeWarningLimit: 400,
+  },
 });
