@@ -31,11 +31,12 @@ export const getWallet = asyncHandler(async (req, res) => {
 });
 
 export const createWallet = asyncHandler(async (req, res) => {
-  // initialBalance = balance ban dau
+  const { name, type, initialBalance, currency, color, icon, note, lowBalanceThreshold, excludeFromTotal } = req.body;
   const wallet = await Wallet.create({
-    ...req.body,
+    name, type, currency, color, icon, note, lowBalanceThreshold, excludeFromTotal,
     userId: req.user.id,
-    balance: req.body.initialBalance,
+    balance: initialBalance ?? 0,
+    initialBalance: initialBalance ?? 0,
   });
   await writeActivityLog({
     userId: req.user.id,
@@ -53,10 +54,10 @@ export const updateWallet = asyncHandler(async (req, res) => {
   if (!wallet) throw notFoundError("Không tìm thấy ví");
   if (wallet.userId !== req.user.id) throw forbiddenError();
 
-  // KHONG cho update truc tiep balance/initialBalance qua API nay
-  // (de dam bao chi co transaction lam thay doi balance)
+  // balance/initialBalance không được update trực tiếp qua API này
+  const { name, type, currency, color, icon, note, lowBalanceThreshold, isActive, excludeFromTotal } = req.body;
   const oldValue = wallet.toJSON();
-  await wallet.update(req.body);
+  await wallet.update({ name, type, currency, color, icon, note, lowBalanceThreshold, isActive, excludeFromTotal });
   await writeActivityLog({
     userId: req.user.id,
     action: "update",

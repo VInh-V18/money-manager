@@ -1,5 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok, created } from "../utils/response.js";
+import { badRequest } from "../utils/errors.js";
 import {
   signUpService,
   signInService,
@@ -25,6 +26,7 @@ import {
   disable2FA,
   regenerateBackupCodes,
 } from "../services/twoFactorService.js";
+import { createOAuthCode, consumeOAuthCode } from "../utils/oauthCodeStore.js";
 import env from "../config/env.js";
 
 const COOKIE_OPTS = {
@@ -68,8 +70,10 @@ const redirectOAuthError = (res, message) => {
 
 export const oauthStart = asyncHandler(async (req, res) => {
   const provider = req.params.provider;
+  // Include `from` in state so it survives the full OAuth redirect cycle
+  const from = typeof req.query.from === "string" ? req.query.from.slice(0, 200) : "/";
   const state = Buffer.from(
-    JSON.stringify({ provider, ts: Date.now() })
+    JSON.stringify({ provider, ts: Date.now(), from })
   ).toString("base64url");
 
   let url;
@@ -100,6 +104,16 @@ export const oauthCallback = asyncHandler(async (req, res) => {
     return redirectOAuthError(res, "Không nhận được mã xác thực OAuth");
   }
 
+  // Extract `from` from state so we can pass it through to the frontend
+  let from = "/";
+  try {
+    const stateRaw = Buffer.from(String(req.query.state || ""), "base64url").toString();
+    const stateData = JSON.parse(stateRaw);
+    if (typeof stateData.from === "string") from = stateData.from;
+  } catch {
+    // Ignore malformed state — just use "/"
+  }
+
   try {
     const { accessToken, refreshToken } = await signInWithOAuthService({
       provider,
@@ -109,8 +123,11 @@ export const oauthCallback = asyncHandler(async (req, res) => {
       ipAddress: req.ip,
     });
 
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
-    const params = new URLSearchParams({ accessToken });
+    // Store tokens server-side, redirect with a short-lived opaque code.
+    // This keeps the access token out of the browser URL (OWASP A07).
+    const oauthCode = await createOAuthCode({ accessToken, refreshToken });
+    const params = new URLSearchParams({ code: oauthCode });
+    if (from && from !== "/") params.set("from", from);
     return res.redirect(`${trimTrailingSlash(env.CLIENT_URL)}/oauth/callback?${params.toString()}`);
   } catch (error) {
     return redirectOAuthError(
@@ -118,6 +135,23 @@ export const oauthCallback = asyncHandler(async (req, res) => {
       error?.message || "Đăng nhập bằng OAuth không thành công"
     );
   }
+});
+
+/**
+ * Đổi OAuth one-time code lấy access token + set refresh token cookie.
+ * Code chỉ dùng được 1 lần, hết hạn sau 60 giây.
+ */
+export const exchangeOAuthCode = asyncHandler(async (req, res) => {
+  const { code } = req.body;
+  if (!code) throw badRequest("Thiếu code");
+
+  const tokens = await consumeOAuthCode(code);
+  if (!tokens) {
+    return res.status(400).json({ success: false, message: "Code không hợp lệ hoặc đã hết hạn" });
+  }
+
+  res.cookie("refreshToken", tokens.refreshToken, COOKIE_OPTS);
+  return ok(res, { accessToken: tokens.accessToken }, "Đăng nhập OAuth thành công");
 });
 
 export const signOut = asyncHandler(async (req, res) => {
@@ -176,14 +210,25 @@ export const me = asyncHandler(async (req, res) => {
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
-  await req.user.update(req.body);
+  // Explicit field whitelist — never trust req.body shape even after Zod validation
+  const { displayName, bio, phone, defaultCurrency, timezone } = req.body;
+  await req.user.update({ displayName, bio, phone, defaultCurrency, timezone });
   const safe = req.user.toJSON();
   delete safe.hashedPassword;
   return ok(res, { user: safe }, "Cập nhật hồ sơ thành công");
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
+  const { writeActivityLog } = await import("../services/activityLogService.js");
   await changePasswordService(req.user.id, req.body);
+  await writeActivityLog({
+    userId: req.user.id,
+    action: "change_password",
+    entityType: "user",
+    entityId: req.user.id,
+    payload: { allSessionsRevoked: true },
+    ipAddress: req.ip,
+  });
   return ok(res, null, "Đổi mật khẩu thành công. Hãy đăng nhập lại.");
 });
 
@@ -216,7 +261,16 @@ export const revokeSession = asyncHandler(async (req, res) => {
 });
 
 export const revokeOtherSessions = asyncHandler(async (req, res) => {
+  const { writeActivityLog } = await import("../services/activityLogService.js");
   const data = await revokeOtherSessionsService(req.user.id, req.cookies?.refreshToken);
+  await writeActivityLog({
+    userId: req.user.id,
+    action: "revoke_other_sessions",
+    entityType: "user",
+    entityId: req.user.id,
+    payload: { revokedCount: data.revokedCount },
+    ipAddress: req.ip,
+  });
   return ok(res, data, "Đã đăng xuất các thiết bị khác");
 });
 
@@ -238,8 +292,17 @@ export const setup2FA = asyncHandler(async (req, res) => {
 });
 
 export const enable2FAHandler = asyncHandler(async (req, res) => {
+  const { writeActivityLog } = await import("../services/activityLogService.js");
   const { token } = req.body;
   const data = await enable2FA(req.user.id, token);
+  await writeActivityLog({
+    userId: req.user.id,
+    action: "enable_2fa",
+    entityType: "user",
+    entityId: req.user.id,
+    payload: {},
+    ipAddress: req.ip,
+  });
   return ok(
     res,
     data,
@@ -248,8 +311,17 @@ export const enable2FAHandler = asyncHandler(async (req, res) => {
 });
 
 export const disable2FAHandler = asyncHandler(async (req, res) => {
+  const { writeActivityLog } = await import("../services/activityLogService.js");
   const { password } = req.body;
   const data = await disable2FA(req.user.id, password);
+  await writeActivityLog({
+    userId: req.user.id,
+    action: "disable_2fa",
+    entityType: "user",
+    entityId: req.user.id,
+    payload: {},
+    ipAddress: req.ip,
+  });
   return ok(res, data, "Đã tắt 2FA");
 });
 

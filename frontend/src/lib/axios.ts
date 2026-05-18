@@ -65,7 +65,8 @@ api.interceptors.response.use(
       } catch {
         useAuthStore.getState().clearState();
         if (window.location.pathname !== "/signin") {
-          window.location.href = "/signin";
+          const from = encodeURIComponent(window.location.pathname);
+          window.location.href = `/signin?from=${from}`;
         }
         // Return pending promise so in-flight requests don't trigger error toasts before redirect
         return new Promise(() => {});

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,25 +18,34 @@ type FormData = z.infer<typeof schema>;
 
 export default function SignInPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const signIn = useAuthStore((s) => s.signIn);
   const loading = useAuthStore((s) => s.loading);
   const accessToken = useAuthStore((s) => s.accessToken);
   const [showPwd, setShowPwd] = useState(false);
+
+  // Trang muốn về sau khi login: từ state (ProtectedRoute) hoặc query param (interceptor)
+  const searchParams = new URLSearchParams(location.search);
+  const fromState = (location.state as { from?: string } | null)?.from;
+  const fromQuery = searchParams.get("from");
+  const redirectTo = fromState || fromQuery || "/";
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { identifier: "", password: "" },
   });
 
-  if (accessToken) return <Navigate to="/" replace />;
+  if (accessToken) return <Navigate to={redirectTo} replace />;
 
   const onSubmit = async (data: FormData) => {
     const ok = await signIn(data.identifier, data.password);
-    if (ok) navigate("/");
+    if (ok) navigate(redirectTo, { replace: true });
   };
 
   const handleOAuthLogin = (provider: OAuthProvider) => {
-    window.location.href = authService.oauthUrl(provider);
+    // Pass `from` so the OAuth flow returns the user to the right page after login
+    const params = redirectTo !== "/" ? `?from=${encodeURIComponent(redirectTo)}` : "";
+    window.location.href = authService.oauthUrl(provider) + params;
   };
 
   return (

@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
+import rateLimit from "express-rate-limit";
 import path from "path";
 
 import env from "./config/env.js";
@@ -29,6 +30,25 @@ import {
   notifRouter,
 } from "./routes/moduleRoutes.js";
 
+// Global rate limiters
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+});
+
+// Tighter limit for write operations (POST/PUT/DELETE)
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Quá nhiều yêu cầu ghi, vui lòng thử lại sau" },
+  skip: (req) => req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS",
+});
+
 export const createApp = () => {
   const app = express();
   app.set("trust proxy", 1);
@@ -39,7 +59,25 @@ export const createApp = () => {
     "http://127.0.0.1:5173",
   ]);
 
-  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'", "https:"],
+          fontSrc: ["'self'", "data:"],
+          objectSrc: ["'none'"],
+          upgradeInsecureRequests: env.NODE_ENV === "production" ? [] : null,
+        },
+      },
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    })
+  );
+
   app.use(
     cors({
       origin: (origin, callback) => {
@@ -51,10 +89,17 @@ export const createApp = () => {
       credentials: true,
     })
   );
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true }));
+
+  // Reduced body limit — financial data doesn't need 10MB
+  app.use(express.json({ limit: "2mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "2mb" }));
   app.use(cookieParser());
   app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev", { stream: morganStream }));
+
+  // Apply global limiter to all API routes
+  app.use("/api", globalLimiter);
+  // Apply write limiter to all mutating API requests
+  app.use("/api", writeLimiter);
 
   app.use("/uploads", express.static(path.resolve(env.UPLOAD_DIR)));
 

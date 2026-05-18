@@ -23,8 +23,12 @@ const env = {
   DB_SYNC_ALTER: t("DB_SYNC_ALTER") || "false",
   DB_SYNC_FORCE: t("DB_SYNC_FORCE") || "false",
 
-  JWT_ACCESS_SECRET: t("JWT_ACCESS_SECRET") || "access_secret_change_me",
-  JWT_REFRESH_SECRET: t("JWT_REFRESH_SECRET") || "refresh_secret_change_me",
+  // No fallback — app must fail fast if these are missing
+  JWT_ACCESS_SECRET: t("JWT_ACCESS_SECRET"),
+  JWT_REFRESH_SECRET: t("JWT_REFRESH_SECRET"),
+  // Separate secret for 2FA challenge tokens prevents token-confusion attacks
+  // (a 2FA challenge token cannot be used as an access token)
+  JWT_2FA_SECRET: t("JWT_2FA_SECRET"),
   JWT_ACCESS_EXPIRES_IN: t("JWT_ACCESS_EXPIRES_IN") || "15m",
   JWT_REFRESH_EXPIRES_IN: t("JWT_REFRESH_EXPIRES_IN") || "7d",
 
@@ -53,5 +57,22 @@ const env = {
   GITHUB_CLIENT_ID: t("GITHUB_CLIENT_ID"),
   GITHUB_CLIENT_SECRET: t("GITHUB_CLIENT_SECRET"),
 };
+
+// Fail fast if secrets are missing — predictable defaults are a security risk
+const REQUIRED = ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"];
+const missing = REQUIRED.filter((k) => !env[k]);
+if (missing.length > 0) {
+  throw new Error(
+    `[STARTUP] Missing required env vars: ${missing.join(", ")}. ` +
+    "Set these in your .env file before starting the server."
+  );
+}
+
+// Derive 2FA secret from access secret if not explicitly set.
+// This is still safer than sharing the same secret because the derived value
+// cannot be used to forge access tokens — the suffix changes the HMAC key.
+if (!env.JWT_2FA_SECRET) {
+  env.JWT_2FA_SECRET = env.JWT_ACCESS_SECRET + ":2fa";
+}
 
 export default env;

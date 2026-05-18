@@ -24,9 +24,9 @@ export default (sequelize) => {
       },
       title: { type: DataTypes.STRING(255), allowNull: false },
       message: { type: DataTypes.TEXT, allowNull: false },
-      // muc do: info | warning | danger
+      // muc do: info | warning | danger | success
       severity: {
-        type: DataTypes.ENUM("info", "warning", "danger"),
+        type: DataTypes.ENUM("info", "warning", "danger", "success"),
         defaultValue: "info",
       },
       // de deeplink ve trang nao: vd { entityType: 'budget', entityId: 12 }

@@ -1,9 +1,10 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Route, Routes } from "react-router";
 import { Toaster } from "sonner";
 
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
 const SignInPage = lazy(() => import("./pages/SignInPage"));
 const SignUpPage = lazy(() => import("./pages/SignUpPage"));
@@ -25,6 +26,7 @@ const NotificationPage = lazy(() => import("./pages/NotificationPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const AiPage = lazy(() => import("./pages/AiPage"));
 
 const PageLoader = () => (
   <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -37,35 +39,37 @@ function App() {
     <>
       <Toaster richColors position="top-right" />
       <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/signin" element={<SignInPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/signin" element={<SignInPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/transactions" element={<TransactionPage />} />
-                <Route path="/wallets" element={<WalletPage />} />
-                <Route path="/categories" element={<CategoryPage />} />
-                <Route path="/budgets" element={<BudgetPage />} />
-                <Route path="/fixed-expenses" element={<FixedExpensePage />} />
-                <Route path="/goals" element={<GoalPage />} />
-                <Route path="/debts" element={<DebtPage />} />
-                <Route path="/templates" element={<TemplatePage />} />
-                <Route path="/reports" element={<ReportPage />} />
-                <Route path="/ai" element={<Navigate to="/" replace />} />
-                <Route path="/notifications" element={<NotificationPage />} />
-                <Route path="/feedback" element={<FeedbackPage />} />
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/transactions" element={<TransactionPage />} />
+                  <Route path="/wallets" element={<WalletPage />} />
+                  <Route path="/categories" element={<CategoryPage />} />
+                  <Route path="/budgets" element={<BudgetPage />} />
+                  <Route path="/fixed-expenses" element={<FixedExpensePage />} />
+                  <Route path="/goals" element={<GoalPage />} />
+                  <Route path="/debts" element={<DebtPage />} />
+                  <Route path="/templates" element={<TemplatePage />} />
+                  <Route path="/reports" element={<ReportPage />} />
+                  <Route path="/ai" element={<AiPage />} />
+                  <Route path="/notifications" element={<NotificationPage />} />
+                  <Route path="/feedback" element={<FeedbackPage />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </>
   );

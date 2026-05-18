@@ -1,11 +1,11 @@
 import { NavLink } from "react-router";
-import { BarChart3, Home, ListOrdered, Settings, Wallet } from "lucide-react";
+import { Bot, BarChart3, Home, ListOrdered, Settings, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { to: "/", icon: Home, label: "Tổng quan", end: true },
   { to: "/transactions", icon: ListOrdered, label: "Giao dịch" },
-  { to: "/wallets", icon: Wallet, label: "Ví" },
+  { to: "/ai", icon: Bot, label: "AI" },
   { to: "/reports", icon: BarChart3, label: "Báo cáo" },
   { to: "/settings", icon: Settings, label: "Cài đặt" },
 ];

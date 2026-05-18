@@ -3,6 +3,7 @@ import { Op, col, fn, where as sqlWhere } from "sequelize";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok, created } from "../utils/response.js";
 import { notFoundError, forbiddenError, badRequest } from "../utils/errors.js";
+import { escapeLike } from "../utils/sanitize.js";
 import {
   Transaction,
   Wallet,
@@ -87,9 +88,10 @@ export const listTransactions = asyncHandler(async (req, res) => {
     if (maxAmount !== undefined) where.amount[Op.lte] = maxAmount;
   }
   if (search) {
+    const safeSearch = escapeLike(search);
     where[Op.or] = [
-      { description: { [Op.like]: `%${search}%` } },
-      { note: { [Op.like]: `%${search}%` } },
+      { description: { [Op.like]: `%${safeSearch}%` } },
+      { note: { [Op.like]: `%${safeSearch}%` } },
     ];
   }
   if (hasReceipt !== undefined) {
@@ -147,7 +149,7 @@ export const getRecentTransactions = asyncHandler(async (req, res) => {
 });
 
 export const searchTransactions = asyncHandler(async (req, res) => {
-  const q = String(req.query.q || "").trim();
+  const q = escapeLike(req.query.q);
   if (!q) return ok(res, { items: [] });
   const items = await Transaction.findAll({
     where: {

@@ -150,7 +150,15 @@ export const performBudgetRollover = async (userId = null) => {
 };
 
 /**
- * Tinh cho nhieu budget cung luc
+ * Tinh cho nhieu budget cung luc — batch query thay vi N+1
+ *
+ * Thuat toan:
+ * 1. Load tat ca budget (1 query)
+ * 2. Nhom budget theo khoang thoi gian (from|to) — budget cung period share 1 query
+ * 3. Voi moi khoang thoi gian duy nhat: 1 query GROUP BY categoryId lay tong chi tieu
+ * 4. Map ket qua tro lai tung budget
+ *
+ * Ket qua: O(ranges) queries thay vi O(N) queries (N = so budget)
  */
 export const calculateBudgetsSummary = async (userId) => {
   const budgets = await Budget.findAll({
@@ -158,12 +166,74 @@ export const calculateBudgetsSummary = async (userId) => {
     include: [{ model: Category, attributes: ["id", "name", "icon", "color"] }],
   });
 
-  const items = await Promise.all(
-    budgets.map(async (b) => {
-      const calc = await calculateBudgetSpent(b);
-      return { ...b.toJSON(), ...calc };
+  if (budgets.length === 0) return [];
+
+  // Buoc 2: nhom budget theo khoang thoi gian
+  const rangeMap = new Map(); // key "from|to" -> { from, to, entries[] }
+  for (const b of budgets) {
+    const { from, to } = getBudgetPeriodRange(b);
+    const key = `${from}|${to}`;
+    if (!rangeMap.has(key)) rangeMap.set(key, { from, to, entries: [] });
+    rangeMap.get(key).entries.push({ budget: b, from, to });
+  }
+
+  // Buoc 3: voi moi khoang thoi gian, fetch chi tieu theo categoryId
+  const spentMap = new Map(); // budgetId -> { spent, from, to }
+
+  await Promise.all(
+    [...rangeMap.values()].map(async ({ from, to, entries }) => {
+      const rows = await Transaction.findAll({
+        where: {
+          userId,
+          type: "expense",
+          transactionDate: { [Op.between]: [from, to] },
+        },
+        attributes: [
+          "categoryId",
+          [fn("SUM", col("amount")), "totalSpent"],
+        ],
+        group: ["categoryId"],
+        raw: true,
+      });
+
+      // catId -> spent, totalAllExpenses cho budget khong co categoryId
+      const catSpent = new Map();
+      let totalAllExpenses = 0;
+      for (const r of rows) {
+        const amt = Number(r.totalSpent || 0);
+        if (r.categoryId !== null) catSpent.set(r.categoryId, amt);
+        totalAllExpenses += amt;
+      }
+
+      for (const { budget } of entries) {
+        const spent = budget.categoryId != null
+          ? (catSpent.get(budget.categoryId) || 0)
+          : totalAllExpenses;
+        spentMap.set(budget.id, { spent, from, to });
+      }
     })
   );
 
-  return items;
+  // Buoc 4: map ket qua
+  return budgets.map((b) => {
+    const { spent = 0, from, to } = spentMap.get(b.id) || {};
+    const baseLimit = Number(b.amount);
+    const rollover = b.rolloverEnabled ? Math.max(0, Number(b.rolloverAmount || 0)) : 0;
+    const limit = baseLimit + rollover;
+    const remaining = limit - spent;
+    const usedPercent = limit > 0 ? (spent / limit) * 100 : 0;
+    return {
+      ...b.toJSON(),
+      spent,
+      limit,
+      baseLimit,
+      rolloverAmount: rollover,
+      remaining,
+      usedPercent: Math.round(usedPercent * 100) / 100,
+      isExceeded: spent > limit,
+      isWarning: usedPercent >= b.warnThreshold,
+      periodFrom: from,
+      periodTo: to,
+    };
+  });
 };

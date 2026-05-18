@@ -10,6 +10,7 @@ import {
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ok } from "../utils/response.js";
 import { notFoundError } from "../utils/errors.js";
+import { escapeLike } from "../utils/sanitize.js";
 
 const paginate = (query) => {
   const page = Math.max(1, Number(query.page) || 1);
@@ -56,10 +57,11 @@ export const listUsers = asyncHandler(async (req, res) => {
   const { page, limit, offset } = paginate(req.query);
   const where = {};
   if (req.query.q) {
+    const safeQ = escapeLike(req.query.q);
     where[Op.or] = [
-      { email: { [Op.like]: `%${req.query.q}%` } },
-      { username: { [Op.like]: `%${req.query.q}%` } },
-      { displayName: { [Op.like]: `%${req.query.q}%` } },
+      { email: { [Op.like]: `%${safeQ}%` } },
+      { username: { [Op.like]: `%${safeQ}%` } },
+      { displayName: { [Op.like]: `%${safeQ}%` } },
     ];
   }
   if (req.query.role) where.role = req.query.role;

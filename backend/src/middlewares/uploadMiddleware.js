@@ -3,57 +3,67 @@ import path from "path";
 import fs from "fs";
 import env from "../config/env.js";
 
-// dam bao thu muc upload ton tai
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// luu file len disk
-const storage = multer.diskStorage({
+// Whitelist of allowed MIME types for images + canonical extension
+const ALLOWED_IMAGE_TYPES = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/gif": ".gif",
+  "image/webp": ".webp",
+};
+
+const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const safe = file.originalname
-      .replace(ext, "")
+    // Derive extension from MIME type — never trust the original filename extension
+    const ext = ALLOWED_IMAGE_TYPES[file.mimetype] || ".jpg";
+    // Sanitize original name: strip non-alphanumeric, truncate
+    const baseName = path.basename(file.originalname, path.extname(file.originalname))
       .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .slice(0, 30);
-    cb(null, `${Date.now()}_${safe}${ext}`);
+      .slice(0, 30) || "upload";
+    cb(null, `${Date.now()}_${baseName}${ext}`);
   },
 });
 
-const fileFilter = (req, file, cb) => {
-  const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
-  if (!allowed.test(file.originalname)) {
-    return cb(new Error("Chỉ cho phép upload ảnh"), false);
+const imageFilter = (req, file, cb) => {
+  if (!ALLOWED_IMAGE_TYPES[file.mimetype]) {
+    return cb(new Error("Chỉ cho phép upload ảnh (JPEG, PNG, GIF, WebP)"), false);
   }
   cb(null, true);
 };
 
 export const uploadImage = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: env.MAX_FILE_SIZE },
+  storage: imageStorage,
+  fileFilter: imageFilter,
+  limits: {
+    fileSize: env.MAX_FILE_SIZE,
+    files: 1, // one file per request
+  },
 });
 
 export const uploadJson = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
-    if (!/\.json$/i.test(file.originalname) && file.mimetype !== "application/json") {
-      return cb(new Error("Chỉ cho phép upload file JSON"), false);
-    }
+    const isJson = file.mimetype === "application/json" || /\.json$/i.test(file.originalname);
+    if (!isJson) return cb(new Error("Chỉ cho phép upload file JSON"), false);
     cb(null, true);
   },
-  limits: { fileSize: env.MAX_FILE_SIZE },
+  limits: { fileSize: Math.min(env.MAX_FILE_SIZE, 2 * 1024 * 1024), files: 1 },
 });
 
 export const uploadCsv = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
-    if (!/\.csv$/i.test(file.originalname) && !/csv/i.test(file.mimetype || "")) {
-      return cb(new Error("Chỉ cho phép upload file CSV"), false);
-    }
+    const isCsv =
+      file.mimetype === "text/csv" ||
+      file.mimetype === "application/csv" ||
+      /\.csv$/i.test(file.originalname);
+    if (!isCsv) return cb(new Error("Chỉ cho phép upload file CSV"), false);
     cb(null, true);
   },
-  limits: { fileSize: env.MAX_FILE_SIZE },
+  limits: { fileSize: Math.min(env.MAX_FILE_SIZE, 5 * 1024 * 1024), files: 1 },
 });
